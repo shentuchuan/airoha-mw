@@ -217,14 +217,14 @@ _mqttd_cmd_json(
         token_idx++;
         MW_CMD_CHECK_LAST_TOKEN(tokens[token_idx]);
         enable = 1;
-        osapi_printf("Enable the MQTT coding\n");
+        osapi_printf("Enable the MQTT json dump\n");
     }
     else if(MW_E_OK == mw_cmd_checkString(tokens[token_idx], "disable"))
     {
         token_idx++;
         MW_CMD_CHECK_LAST_TOKEN(tokens[token_idx]);
         enable = 0;
-        osapi_printf("Disable the MQTT coding\n");
+        osapi_printf("Disable the MQTT json dump\n");
     }
     else
     {
