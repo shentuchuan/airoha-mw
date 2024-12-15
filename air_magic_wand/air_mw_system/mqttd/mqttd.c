@@ -922,7 +922,10 @@ static void _mqttd_publish_status(MQTTD_CTRL_T *ptr_mqttd)
 		{
 			cJSON_AddStringToObject(json_port_entry, "state", "close");
 			cJSON_AddNumberToObject(json_port_entry, "speed", port_cfg_info->admin_speed);
-        	cJSON_AddNumberToObject(json_port_entry, "duplex", port_cfg_info->admin_duplex);
+			if(port_cfg_info->admin_duplex == 0)
+        		cJSON_AddNumberToObject(json_port_entry, "duplex", 3);/*half*/
+        	else
+        		cJSON_AddNumberToObject(json_port_entry, "duplex", 4);/*full*/
 		}
 		else
 		{
@@ -930,13 +933,19 @@ static void _mqttd_publish_status(MQTTD_CTRL_T *ptr_mqttd)
 			{
 				cJSON_AddStringToObject(json_port_entry, "state", "up");
 				cJSON_AddNumberToObject(json_port_entry, "speed", port_oper_info.oper_speed);
-        		cJSON_AddNumberToObject(json_port_entry, "duplex", port_oper_info.oper_duplex);
+				if(port_oper_info.oper_duplex == 0)
+	        		cJSON_AddNumberToObject(json_port_entry, "duplex", 3);/*half*/
+	        	else
+	        		cJSON_AddNumberToObject(json_port_entry, "duplex", 4);/*full*/
 			}
 			else
 			{
 				cJSON_AddStringToObject(json_port_entry, "state", "down");
 				cJSON_AddNumberToObject(json_port_entry, "speed", port_cfg_info->admin_speed);
-        		cJSON_AddNumberToObject(json_port_entry, "duplex", port_cfg_info->admin_duplex);
+        		if(port_cfg_info->admin_duplex == 0)
+        			cJSON_AddNumberToObject(json_port_entry, "duplex", 3);/*half*/
+        		else
+        			cJSON_AddNumberToObject(json_port_entry, "duplex", 4);/*full*/
 			}	
 
 		}
@@ -1502,7 +1511,7 @@ static MW_ERROR_NO_T _mqttd_publish_portcfg(MQTTD_CTRL_T *ptr_mqttd,  const DB_R
     DB_PORT_CFG_INFO_T *ptr_port_cfg_info = NULL;
 	osapi_printf("publish portcfg: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
  
-	if(req->f_idx != PORT_ADMIN_STATUS || req->f_idx != DB_ALL_FIELDS)
+	if(req->f_idx != PORT_ADMIN_STATUS && req->f_idx != DB_ALL_FIELDS)
 		return MW_E_OK;
 	
     rc = mqttd_queue_getData(PORT_CFG_INFO, DB_ALL_FIELDS, req->e_idx, &db_msg, &db_size, &db_data);
@@ -2798,12 +2807,12 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_setting(MQTTD_CTRL_T *mqttdctl
 static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj)
 {
     MW_ERROR_NO_T rc = MW_E_OK;
-    DB_PORT_MIRROR_INFO_T port_mirror_info;
+    ONE_DB_PORT_MIRROR_INFO_T port_mirror_info;
     DB_MSG_T *ptr_db_msg = NULL;
     u16_t db_size = 0;
     void *db_data = NULL;
 
-    cJSON *port_mirror_obj;
+    cJSON *port_mirror_obj = NULL;
     cJSON_ArrayForEach(port_mirror_obj, data_obj) {
         if (cJSON_IsObject(port_mirror_obj)) {
             cJSON *session_id_obj = cJSON_GetObjectItemCaseSensitive(port_mirror_obj, "gid");
@@ -2811,6 +2820,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
                 break;
             }
             int session_id = session_id_obj->valueint;
+
             if(session_id > MAX_MIRROR_SESS_NUM) {
                 mqttd_debug("port_mirror_info session_id(%d) out of range(%d)\n", session_id, MAX_MIRROR_SESS_NUM);
                 break;
@@ -2823,7 +2833,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
                 break;
             }
 
-            memcpy(&port_mirror_info, db_data, sizeof(DB_PORT_MIRROR_INFO_T));
+            memcpy(&port_mirror_info, db_data, sizeof(ONE_DB_PORT_MIRROR_INFO_T));
             mqtt_free(ptr_db_msg);
             // get direction
             int dir_int,port_int;
@@ -2837,6 +2847,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
             cJSON *dir_element = NULL;
             int index = 0;
             int src_port_size = cJSON_GetArraySize(src_port_obj);
+
             for (index = 0; index < src_port_size; index++) {
                 src_port_element = cJSON_GetArrayItem(src_port_obj, index);
                 dir_element = cJSON_GetArrayItem(dir_obj, index);
@@ -2844,12 +2855,12 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
                     port_int = src_port_element->valueint;
                     dir_int = dir_element->valueint;
                     if (dir_int == 1) {
-                        port_mirror_info.src_in_port[index] |= (1 << (port_int));
+                        port_mirror_info.src_in_port |= (1 << (port_int));
                     } else if (dir_int == 2) {
-                        port_mirror_info.src_eg_port[index] |= (1 << (port_int));
+                        port_mirror_info.src_eg_port |= (1 << (port_int));
                     } else if (dir_int == 3) {
-                        port_mirror_info.src_in_port[index] |= (1 << (port_int));
-                        port_mirror_info.src_eg_port[index] |= (1 << (port_int));
+                        port_mirror_info.src_in_port |= (1 << (port_int));
+                        port_mirror_info.src_eg_port |= (1 << (port_int));
                     } else {
                         mqttd_debug("port_mirror_info unknown direction(%d)\n", dir_int);
                         break;
@@ -2860,9 +2871,8 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
             // get dest port
             cJSON *dest_port_obj = cJSON_GetObjectItemCaseSensitive(port_mirror_obj, "tp");
             if (dest_port_obj) {
-                port_mirror_info.dest_port[session_id] = dest_port_obj->valueint;
+                port_mirror_info.dest_port = dest_port_obj->valueint;
             }
-
             rc = mqttd_queue_setData(M_UPDATE, PORT_MIRROR_INFO, DB_ALL_FIELDS, session_id, &port_mirror_info, sizeof(port_mirror_info));
             if (MW_E_OK != rc) {
                 mqttd_debug("Update DB port_mirror_info failed(%d)\n", rc);
@@ -3771,13 +3781,14 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_data(MQTTD_CTRL_T *mqttdctl,  cJSON
     char *json_data = cJSON_Print(data_obj);
     if(json_data)
     {
-    	mqttd_json_dump("setConfig: %s\n", json_data);
+    	mqttd_json_dump("setConfig data: %s\n", json_data);
     	mqtt_free(json_data);
     }
 #endif    	
     cJSON *child = NULL;
     cJSON_ArrayForEach(child, data_obj)
     {
+    	 //osapi_printf("setconfig_data child:%s\n", child->string);
          if (osapi_strcmp(child->string, "device") == 0) {
             rc = _mqttd_handle_setconfig_device(mqttdctl, child);
             if (MW_E_OK != rc) {
