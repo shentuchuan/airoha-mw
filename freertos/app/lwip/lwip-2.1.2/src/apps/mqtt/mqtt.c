@@ -693,8 +693,8 @@ pub_ack_rec_rel_response(mqtt_client_t *client, u8_t msg, u16_t pkt_id, u8_t qos
 void 
 mqtt_pub_ack_rec_rel_response(mqtt_client_t *client, u16_t pkt_id, u8_t flags, u8_t qos)
 {
-	/* Reply if QoS > 0 */
-	if (flags == 0 && qos > 0) {
+	/* Reply if QoS > 0 && last*/
+	if (flags == 1 && qos > 0) {
 	  /* Send PUBACK for QoS 1 or PUBREC for QoS 2 */
 	  u8_t resp_msg = (qos == 1) ? MQTT_MSG_TYPE_PUBACK : MQTT_MSG_TYPE_PUBREC;
 	  LWIP_DEBUGF(MQTT_DEBUG_TRACE, ("mqtt_incomming_publish: Sending publish response: %s with pkt_id: %d\n",
@@ -832,7 +832,7 @@ mqtt_message_received(mqtt_client_t *client, u8_t fixed_hdr_len, u16_t length, u
       if (client->data_cb != NULL) {
         client->data_cb(client->inpub_arg, var_hdr_payload + payload_offset, payload_length, remaining_length == 0 ? MQTT_DATA_FLAG_LAST : 0, qos);
       }
-#if 0 //
+#if 0 
       /* Reply if QoS > 0 */
       if (remaining_length == 0 && qos > 0) {
         /* Send PUBACK for QoS 1 or PUBREC for QoS 2 */

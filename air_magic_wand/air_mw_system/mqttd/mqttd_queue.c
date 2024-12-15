@@ -221,7 +221,7 @@ mqttd_queue_recv(
         return rc;
     }
 
-    //mqttd_debug_db("ptr_msg=%p", ptr_msg);
+    mqttd_debug_db("ptr_msg=%p", ptr_msg);
     (*ptr_buf) = ptr_msg;
 
     return MW_E_OK;
@@ -243,7 +243,7 @@ mqttd_get_queue_recv(
         return rc;
     }
 
-    mqttd_debug_db("ptr_msg=%p", ptr_msg);
+    //mqttd_debug_db("ptr_msg=%p", ptr_msg);
     (*ptr_buf) = ptr_msg;
 
     return MW_E_OK;
@@ -476,8 +476,24 @@ mqttd_queue_setData(
     rc = mqttd_get_queue_send(method, t_idx, f_idx, e_idx, ptr_data, size, &ptr_msg);
     if (MW_E_OK != rc)
     {
-        osapi_printf("%s: mqttd_queue_send failed(%d)\n", __func__, rc);
+        mqttd_debug_db("%s: mqttd_queue_send failed(%d)\n", __func__, rc);
     }
+    /* wait for respond messgae and free ptr_msg */
+    rc = mqttd_get_queue_recv((void **)&ptr_msg);
+    if(MW_E_OK == rc)
+    {
+        mqttd_debug_db("%s: httpd_queue_recv success \n", __func__);
+    }
+    else
+    {
+        mqttd_debug_db("%s: httpd_queue_recv failed(%d) \n", __func__, rc);
+        if(MW_E_TIMEOUT == rc)
+        {
+            mqttd_debug_db("%s: httpd_queue_recv timeout(%d) \n", __func__, rc);
+        }
+    }
+
+    osapi_free(ptr_msg);
     return rc;
 }
 
@@ -561,7 +577,7 @@ mqttd_queue_getData(
     ptr_pload = (DB_PAYLOAD_T *)&(ptr_msg->ptr_payload);
     (*pptr_out_data) = &(ptr_pload->ptr_data);
 
-    mqttd_debug_db("*pptr_out_msg = %p, *pptr_out_data = %p \n", *pptr_out_msg, *pptr_out_data);
+    //mqttd_debug_db("*pptr_out_msg = %p, *pptr_out_data = %p \n", *pptr_out_msg, *pptr_out_data);
 
     return MW_E_OK;
 }

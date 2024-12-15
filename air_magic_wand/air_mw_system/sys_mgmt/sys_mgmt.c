@@ -123,6 +123,9 @@ static void sys_mgmt_netif_ip_set(UI8_T is_dhcp)
             ip_addr_set_ip4_u32_val(dns, ip4_addr_get_u32(&sys_mgmt_info.def_dns));
         }
         osapi_printf("Set interface IP as %s manually.\n", ip4addr_ntoa(&ip));
+		osapi_printf("Set interface mask as %s.\n", ip4addr_ntoa(&mask));
+		osapi_printf("Set interface gw as %s.\n", ip4addr_ntoa(&gw));
+		osapi_printf("Set interface dns as 0x%x.\n", ip_addr_get_ip4_u32(&dns));
     }
     else
     {
@@ -1707,6 +1710,18 @@ void sys_mgmt_mqttd_enable_cmd_set(UI8_T enable, void *server_ip)
         mqttd_shutdown();
     }
 }
+
+
+void sys_mgmt_mqttd_enable_coding(UI8_T enable)
+{
+    mqttd_coding_enable(enable);
+}
+
+void sys_mgmt_mqttd_enable_json(UI8_T enable)
+{
+    mqttd_json_dump_enable(enable);
+}
+
 #endif
 
 /* FUNCTION NAME: mw_dos_setGlobalCfg
