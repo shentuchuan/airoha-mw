@@ -3843,30 +3843,30 @@ static MW_ERROR_NO_T _mqttd_handle_capability(MQTTD_CTRL_T *mqttdctl,  cJSON *ms
     cJSON_AddItemToObject(data, "remote_protocols", cJSON_CreateStringArray((const char*[]){"http"}, 1));
     cJSON_AddItemToObject(data, "device_operations", cJSON_CreateStringArray((const char*[]){"reset", "reboot", "update"}, 3));
     cJSON_AddItemToObject(data, "port_stats_type", cJSON_CreateStringArray((const char*[]){"data", "packet"}, 2));
-    cJSON_AddBoolToObject(data, "loop_check", true);
+    //cJSON_AddBoolToObject(data, "loop_check", true);
 
     cJSON_AddItemToObject(data, "port_setting", port_setting);
     cJSON_AddBoolToObject(port_setting, "enable", true);
     cJSON_AddItemToObject(port_setting, "duplex", cJSON_CreateStringArray((const char*[]){"auto", "half", "full"}, 3));
     cJSON_AddItemToObject(port_setting, "speed", cJSON_CreateStringArray((const char*[]){"auto", "10", "100", "1000"}, 4));
     cJSON_AddBoolToObject(port_setting, "flow_control", true);
-    cJSON_AddBoolToObject(port_setting, "EEE", false);
+    cJSON_AddBoolToObject(port_setting, "EEE", true);
 
     cJSON_AddItemToObject(data, "port_mirroring", port_mirroring);
     cJSON_AddNumberToObject(port_mirroring, "max_number", 8);
     cJSON_AddItemToObject(port_mirroring, "direction", cJSON_CreateStringArray((const char*[]){"egress", "ingress", "bi-directional"}, 3));
 
-    cJSON_AddNumberToObject(data, "port_isolate_group", 8);
+    //cJSON_AddNumberToObject(data, "port_isolate_group", 8);
 
     cJSON_AddItemToObject(data, "static_mac", static_mac);
     cJSON_AddNumberToObject(static_mac, "max", 32);
     cJSON_AddBoolToObject(static_mac, "VLAN_attribution", true);
     cJSON_AddBoolToObject(static_mac, "port_attribution", true);
 
-    cJSON_AddItemToObject(data, "filter_mac", filter_mac);
-    cJSON_AddNumberToObject(filter_mac, "max", 8);
-    cJSON_AddBoolToObject(filter_mac, "VLAN_attribution", true);
-    cJSON_AddBoolToObject(filter_mac, "port_attribution", false);
+    //cJSON_AddItemToObject(data, "filter_mac", filter_mac);
+    //cJSON_AddNumberToObject(filter_mac, "max", 8);
+    //cJSON_AddBoolToObject(filter_mac, "VLAN_attribution", true);
+    //cJSON_AddBoolToObject(filter_mac, "port_attribution", false);
 
     cJSON_AddItemToObject(data, "vlan_range", vlan_range);
     cJSON_AddNumberToObject(vlan_range, "min", 1);
@@ -3890,7 +3890,7 @@ static MW_ERROR_NO_T _mqttd_handle_capability(MQTTD_CTRL_T *mqttdctl,  cJSON *ms
     cJSON_AddItemToObject(vlan_type_hybrid, "option", cJSON_CreateStringArray((const char*[]){"PVID", "tag_VLAN", "untag_VLAN"}, 3));
     cJSON_AddItemToArray(vlan_type, vlan_type_hybrid);
 
-
+#if 0
     cJSON_AddItemToObject(data, "port_limit_rate", port_limit_rate);
     cJSON_AddBoolToObject(port_limit_rate, "enable", true);
     cJSON_AddItemToObject(port_limit_rate, "direction", cJSON_CreateStringArray((const char*[]){"egress", "ingress", "bi-directional"}, 3));
@@ -3906,7 +3906,7 @@ static MW_ERROR_NO_T _mqttd_handle_capability(MQTTD_CTRL_T *mqttdctl,  cJSON *ms
     cJSON_AddNumberToObject(storm_control_range, "min", 0);
     cJSON_AddNumberToObject(storm_control_range, "max", 1000);
     cJSON_AddItemToObject(storm_control, "range", storm_control_range);
-
+#endif
     mqtt_send_json_and_free(mqttdctl, topic, root);
 
     return rc;
@@ -4028,7 +4028,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_setting(MQTTD_CTRL_T *mqttdctl
     DB_MSG_T *ptr_db_msg = NULL;
     u16_t db_size = 0;
     void *db_data = NULL;
-    osapi_printf("_mqttd_handle_getconfig_port_setting.\n");
+    osapi_printf("mqttd_handle_getconfig_port_setting.\n");
     cJSON *json_port_info = cJSON_CreateArray();
     if (json_port_info == NULL)
     {
@@ -4102,7 +4102,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
     DB_MSG_T *ptr_db_msg = NULL;
     u16_t db_size = 0;
     void *db_data = NULL;
-	osapi_printf("mqttd_handle_getconfig_static_mac.\n");
+	osapi_printf("mqttd_handle_getconfig_port_mirroring.\n");
     memset(&port_mirror_info, 0, sizeof(DB_PORT_MIRROR_INFO_T));
     rc = mqttd_queue_getData(PORT_MIRROR_INFO, DB_ALL_FIELDS, DB_ALL_ENTRIES, &ptr_db_msg, &db_size, &db_data);
     if(MW_E_OK != rc)
@@ -4197,7 +4197,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
     for (i = 0; i < MAX_STATIC_MAC_NUM; i++)
     {
         //blank entry
-        #if 0
+        #if 1
         if(static_mac_info.port[i] == 0)
             continue;
         #endif
@@ -4664,6 +4664,11 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_data(MQTTD_CTRL_T *mqttdctl,  cJSON
                 }
                 // Handle "port_mirroring" case
             } else if (osapi_strcmp(child->valuestring, "port_mirroring") == 0) {
+            	rc = _mqttd_handle_getconfig_port_mirroring(mqttdctl, data);
+                if (MW_E_OK != rc) {
+                    mqttd_debug("Handling setConfig device failed.");
+                    break;
+                }
                 // Handle "port_isolate" case
             } else if (osapi_strcmp(child->valuestring, "port_isolate") == 0) {
                 // Handle "static_mac" case
@@ -4942,7 +4947,7 @@ static void _mqttd_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t
         cJSON *json_obj = cJSON_Parse((const char *)ptr_mqttd->mqtt_buff);
         if (json_obj == NULL)
         {
-            mqttd_debug("Failed to parse JSON data.");
+            osapi_printf("Failed to parse JSON data.");
             return;
         }
 		MW_ERROR_NO_T rc = MW_E_OK;

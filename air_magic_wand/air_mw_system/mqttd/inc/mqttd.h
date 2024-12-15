@@ -53,13 +53,11 @@
 /* MACRO FUNCTION DECLARATIONS
 */
 
-#ifndef MQTT_EASY_DUMP
+#ifdef MQTT_EASY_DUMP
 
-#define mqttd_debug(...)       printf(__VA_ARGS__)
-
-#define mqttd_debug_pkt(...)       printf(__VA_ARGS__)
-
-#define mqttd_debug_db(...)       printf(__VA_ARGS__)
+#define mqttd_debug      	printf
+#define mqttd_debug_pkt     printf
+#define mqttd_debug_db      printf
 
 
 #else
@@ -230,5 +228,7 @@ mqttd_get_state(
 void *mqtt_malloc(UI32_T size);
 void mqtt_free(void *ptr);
 void *mqtt_realloc(void *ptr, UI32_T size);
+
+
 
 #endif  /*_MQTTD_H_*/
