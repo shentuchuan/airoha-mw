@@ -4503,6 +4503,58 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_vlan_member(MQTTD_CTRL_T *mqttdctl,
 {
     MW_ERROR_NO_T rc = MW_E_OK;
 	DB_VLAN_ENTRY_T *ptr_vlan_entry_tbl = NULL;
+    VLAN_ENTRY_INFO_T *vlan_entry = NULL;
+    DB_MSG_T *ptr_msg = NULL;
+    u16_t size = 0;
+    u8_t i = 0;
+
+    // 创建 vlan_member 数组
+    cJSON *vlan_member = cJSON_CreateArray();
+
+    //更新vlan配置
+    for(i = 1; i < MAX_VLAN_ENTRY_NUM+1; i++)
+    {
+        /* Get DB VLAN_ENTRY */
+        rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, i, &ptr_msg, &size, (void **)&vlan_entry);
+        if(MW_E_OK != rc)
+        {
+            mqttd_debug("get vlan cfg failed(%d)\n", rc);
+            return rc;
+        }
+        //mqttd_debug("vlan_entry size:%d\n", size);
+
+        mqttd_debug("vlan_id:%d  %x %x %x \n", vlan_entry->vlan_id, vlan_entry->port_member, vlan_entry->tagged_member, vlan_entry->untagged_member);
+        if(ptr_vlan_entry_tbl->vlan_id[i] == 0) {
+            continue;
+        }
+        if((vlan_entry->vlan_id == i+1) 
+        && (vlan_entry->tagged_member == 0)
+        && (vlan_entry->untagged_member == 0)
+        && (vlan_entry->port_member == 0)) {
+            continue;
+        }
+        // 创建第一个对象并添加到数组
+        cJSON *member1 = cJSON_CreateObject();
+        cJSON_AddNumberToObject(member1, "id", (double)vlan_entry->vlan_id);
+        MW_FREE(ptr_msg);
+        if(false == cJSON_AddItemToArray(vlan_member, member1)){
+            mqttd_debug("Failed to add vlan member to array.");
+            cJSON_Delete(member1);
+            cJSON_Delete(vlan_member);
+            return MW_E_NO_MEMORY;
+        }
+    }
+
+    cJSON_AddItemToObject(data_obj, "vlan_member", vlan_member);
+    ptr_msg = NULL;
+    ptr_vlan_entry_tbl = NULL;
+	return rc;
+}
+
+static MW_ERROR_NO_T _mqttd_handle_getconfig_total_vlan_member(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj)
+{
+    MW_ERROR_NO_T rc = MW_E_OK;
+	DB_VLAN_ENTRY_T *ptr_vlan_entry_tbl = NULL;
     DB_MSG_T *ptr_msg = NULL;
     u16_t size = 0;
     u8_t i = 0;
