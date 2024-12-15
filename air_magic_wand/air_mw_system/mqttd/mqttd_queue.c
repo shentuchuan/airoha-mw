@@ -482,14 +482,14 @@ mqttd_queue_setData(
     rc = mqttd_get_queue_recv((void **)&ptr_msg);
     if(MW_E_OK == rc)
     {
-        mqttd_debug_db("%s: httpd_queue_recv success \n", __func__);
+        //mqttd_debug_db("%s: mqttd_queue_recv success \n", __func__);
     }
     else
     {
-        mqttd_debug_db("%s: httpd_queue_recv failed(%d) \n", __func__, rc);
+        mqttd_debug_db("%s: mqttd_queue_recv failed(%d) \n", __func__, rc);
         if(MW_E_TIMEOUT == rc)
         {
-            mqttd_debug_db("%s: httpd_queue_recv timeout(%d) \n", __func__, rc);
+            mqttd_debug_db("%s: mqttd_queue_recv timeout(%d) \n", __func__, rc);
         }
     }
 

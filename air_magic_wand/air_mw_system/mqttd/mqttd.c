@@ -4587,7 +4587,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_vlan_setting(MQTTD_CTRL_T *mqttdctl
         }
 
         osapi_memset(port_id_str, 0, sizeof(port_id_str));
-        osapi_sprintf(port_id_str, sizeof(port_id_str), "port%d", port_id);
+        osapi_sprintf(port_id_str, "port%d", port_id);
         port_vlan_type = MQTTD_PORT_VLAN_NONE;
         if(VLAN_DEFAULT_VID != ptr_pvid_tbl[port_id]){
             port_vlan_type = MQTTD_PORT_VLAN_ACCESS;
@@ -4598,7 +4598,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_vlan_setting(MQTTD_CTRL_T *mqttdctl
             vlan2_cnt = 0;
             BITMAP_VLAN_FOREACH(ptr_vlan_list_tbl[port_id], j){
                 /* Get DB VLAN_ENTRY */
-                rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, j, &ptr_vlan_entry_msg, &size, (void **)&vlan_entry);
+                rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, j+1, &ptr_vlan_entry_msg, &size, (void **)&vlan_entry);
                 if(MW_E_OK != rc)
                 {
                     mqttd_debug("get vlan cfg failed(%d)\n", rc);
@@ -4623,6 +4623,8 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_vlan_setting(MQTTD_CTRL_T *mqttdctl
                         vlan2_cnt++;
                     }
                 }
+                MW_FREE(ptr_vlan_entry_msg);
+                ptr_vlan_entry_msg = NULL;
             } 
             if(vlan2_cnt > 0){
                 port_vlan_type = MQTTD_PORT_VLAN_HYBRID;
@@ -4776,7 +4778,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_vlan_member(MQTTD_CTRL_T *mqttdctl,
         }
         //mqttd_debug("vlan_entry size:%d\n", size);
 
-        mqttd_debug("vlan_id:%d  %x %x %x \n", vlan_entry->vlan_id, vlan_entry->port_member, vlan_entry->tagged_member, vlan_entry->untagged_member);
+        //mqttd_debug("vlan_id:%d  %x %x %x \n", vlan_entry->vlan_id, vlan_entry->port_member, vlan_entry->tagged_member, vlan_entry->untagged_member);
         if(vlan_entry->vlan_id == 0) {
             MW_FREE(ptr_msg);
             continue;
