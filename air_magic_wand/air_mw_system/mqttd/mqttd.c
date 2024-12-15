@@ -1572,49 +1572,33 @@ static MW_ERROR_NO_T _mqttd_publish_vlancfg(MQTTD_CTRL_T *ptr_mqttd,  const DB_R
 	
     rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, req->e_idx, &db_msg, &db_size, &vlan_entry);
     mqttd_debug("get 1vlan entry %p %d %d %d\n", db_msg, db_msg->ptr_payload->request.t_idx, db_msg->ptr_payload->request.f_idx, db_msg->ptr_payload->request.e_idx);
-    if(MW_E_OK == rc)
+    if(MW_E_OK != rc)
     {
-        /* If SUBACK received, then PUBLISH online event */
-        char topic[128];
-        osapi_snprintf(topic, sizeof(topic), "%s/event", ptr_mqttd->topic_prefix);
-        cJSON *root = cJSON_CreateObject();
-        cJSON *data = cJSON_CreateObject();
-        cJSON *vlan_member = cJSON_CreateObject();
-        if (root == NULL || data == NULL || vlan_member == NULL) {
-            mqttd_debug("Failed to create JSON objects\n");
-            if (root != NULL) cJSON_Delete(root);
-            if (data != NULL) cJSON_Delete(data);
-            if (vlan_member != NULL) cJSON_Delete(vlan_member);
-            return MW_E_NO_MEMORY;
-        }
-
-	    cJSON_AddStringToObject(root, "type", "config");
-	    cJSON_AddItemToObject(root, "data", data);
-
-        cJSON_AddNumberToObject(data, "vlan_id", vlan_entry->vlan_id);
-        cJSON_AddNumberToObject(data, "portmber", vlan_entry->port_member);
-        cJSON_AddNumberToObject(data, "tagged_member", vlan_entry->tagged_member);
-        cJSON_AddNumberToObject(data, "untagged_member", vlan_entry->untagged_member);
-        cJSON_AddItemToObject(data, "vlan_member", vlan_member);
-        osapi_printf("vlan_member: %d %x %x \n", vlan_entry->vlan_id, vlan_entry->port_member, vlan_entry->tagged_member);
-	    char *original_payload = cJSON_PrintUnformatted(root);
-	    cJSON_Delete(root);
-		mqtt_free(db_msg);
-
-	    if (original_payload == NULL) {
-	        osapi_printf("Failed to print JSON\n");
-	        return MW_E_NO_MEMORY;
-	    }
-		osapi_printf("portcfg: payload:%s\n", original_payload);
-
-		int original_payloadlen = strlen(original_payload);
-		// Encrypt the payload using RC4
-    	mqttd_rc4_encrypt((unsigned char *)original_payload, original_payloadlen, MQTTD_RC4_KEY, ptr_mqttd->mqtt_buff);
-        mqtt_publish(ptr_mqttd->ptr_client, topic, (const void *)ptr_mqttd->mqtt_buff, original_payloadlen, MQTTD_REQUEST_QOS, MQTTD_REQUEST_RETAIN, _mqttd_publish_cb, (void *)ptr_mqttd);
-		mqtt_free(original_payload); // Free the JSON payload
-        
-        osapi_printf("\nMQTT subscribe event topic with port config done.\n");
+        mqttd_debug("Get org DB vlancfg failed(%d)\n", rc);
+		return rc;
     }
+
+	/* If SUBACK received, then PUBLISH online event */
+    char topic[80];
+    osapi_snprintf(topic, sizeof(topic), "%s/event", ptr_mqttd->topic_prefix);
+    
+    cJSON *root = cJSON_CreateObject();
+    cJSON *data = cJSON_CreateObject();
+    cJSON *vlan_member = cJSON_CreateObject();
+
+    cJSON_AddStringToObject(root, "type", "config");
+    cJSON_AddItemToObject(root, "data", data);
+
+    cJSON_AddNumberToObject(data, "vlan_id", vlan_entry->vlan_id);
+    cJSON_AddNumberToObject(data, "portmber", vlan_entry->port_member);
+    cJSON_AddNumberToObject(data, "tagged_member", vlan_entry->tagged_member);
+    cJSON_AddNumberToObject(data, "untagged_member", vlan_entry->untagged_member);
+    cJSON_AddItemToObject(data, "vlan_member", vlan_member);
+
+	mqtt_free(db_msg);
+   
+	mqtt_send_json_and_free(ptr_mqttd, topic, root);
+
 	return rc;
 }
 
@@ -1904,13 +1888,10 @@ _mqttd_listen_db(
         return;
     }
 
-    //osapi_printf("\n listendb 3msgqueuerecv, %p %d %d %d\n", ptr_msg, ptr_msg->ptr_payload->request.t_idx, ptr_msg->ptr_payload->request.f_idx, ptr_msg->ptr_payload->request.e_idx);
-
-
-    //mqttd_debug_db("get ptr_msg =%p", ptr_msg);
+    mqttd_debug_db("get ptr_msg =%p", ptr_msg);
     if (M_B_RESPONSE == (ptr_msg->method & M_B_RESPONSE))
     {
-        //mqttd_debug_db("free the response meesage: ptr_msg =%p", ptr_msg);
+        mqttd_debug_db("free the response meesage: ptr_msg =%p", ptr_msg);
         osapi_free(ptr_msg);
         return;
     }
@@ -1920,7 +1901,7 @@ _mqttd_listen_db(
     {
         count = ptr_msg->type.count;
         method = ptr_msg->method;
-        //mqttd_debug_db("count =%d, method =%u", count, method);
+        mqttd_debug_db("count =%d, method =%u", count, method);
 
         if (M_UPDATE == (method & M_UPDATE))
         {
@@ -1929,10 +1910,10 @@ _mqttd_listen_db(
             {
                 memcpy((void *)&req, (const void *)ptr_data, sizeof(DB_REQUEST_TYPE_T));
                 ptr_data += sizeof(DB_REQUEST_TYPE_T);
-                ////osapi_printf("listen_db[%d]: T/F/E =%u/%u/%u\n", count, req.t_idx, req.f_idx, req.e_idx);
+                //osapi_printf("listen_db[%d]: T/F/E =%u/%u/%u\n", count, req.t_idx, req.f_idx, req.e_idx);
                 /* append db json data to PUBLISH request list */
                 memcpy((void *)&msg_size, (const void *)ptr_data, sizeof(UI16_T));
-                //mqttd_debug_db("data size =%u", msg_size);
+                mqttd_debug_db("data size =%u", msg_size);
                 ptr_data += sizeof(UI16_T);
                 /* append db rawdata to PUBLISH request list */
                 switch (req.t_idx)  /*TABLES_T*/
@@ -1964,7 +1945,7 @@ _mqttd_listen_db(
 						(void)_mqttd_publish_static_mac(ptr_mqttd, &req, ptr_data);
                         break;	
                     default:
-                        //mqttd_debug_db("Invalid TABLES_T value: %u", req.t_idx);
+                        mqttd_debug_db("Invalid TABLES_T value: %u", req.t_idx);
                         break;
                 }
                 count--;
@@ -1972,7 +1953,7 @@ _mqttd_listen_db(
             }
         }
     }
-    //mqttd_debug_db("free ptr_msg =%p\n", ptr_msg);
+    mqttd_debug_db("free ptr_msg =%p\n", ptr_msg);
     osapi_free(ptr_msg);
     ptr_msg = NULL;
 }
@@ -2588,8 +2569,8 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_device(MQTTD_CTRL_T *mqttdctl, cJSO
         sys_info.sys_name[sizeof(sys_info.sys_name) - 1] = '\0'; // Ensure null-termination
     }
 
-
-    rc = mqttd_queue_setData(M_UPDATE, SYS_INFO, DB_ALL_FIELDS, DB_ALL_ENTRIES, &sys_info, sizeof(DB_SYS_INFO_T));
+	rc = mqttd_queue_setData(M_UPDATE, SYS_INFO, SYS_NAME, DB_ALL_ENTRIES, sys_info.sys_name, MAX_SYS_NAME_SIZE);
+    //rc = mqttd_queue_setData(M_UPDATE, SYS_INFO, DB_ALL_FIELDS, DB_ALL_ENTRIES, &sys_info, sizeof(DB_SYS_INFO_T));
     if (MW_E_OK != rc) {
         mqttd_debug("set DB device name failed(%d)\n", rc);
     }
@@ -2709,28 +2690,35 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_setting(MQTTD_CTRL_T *mqttdctl
 	                cJSON *speed_obj = cJSON_GetObjectItemCaseSensitive(port_cfg_obj, "sp");
 	                if (speed_obj) {
 	                    switch (speed_obj->valueint) {
-		                    case 10:
-		                        port_cfg_info.admin_speed = AIR_PORT_SPEED_10M;
+		                    case 0:
+		                        port_cfg_info.admin_speed = 0; /*auto*/
 		                        break;
-		                    case 100:
-		                        port_cfg_info.admin_speed = AIR_PORT_SPEED_100M;
+		                    case 1:
+		                        port_cfg_info.admin_speed = 1; /*10M*/
 		                        break;
-		                    case 1000:
-		                        port_cfg_info.admin_speed = AIR_PORT_SPEED_1000M;
+		                    case 2:
+		                        port_cfg_info.admin_speed = 2; /*100M*/
 		                        break;
-		                        default:
-		                            //port_cfg_info.admin_speed = AIR_PORT_SPEED_AUTO;
-		                            break;
+		                    case 3:
+		                        port_cfg_info.admin_speed = 3; /*1000M*/
+		                        break;		                        
+		                    default:
+	                            //port_cfg_info.admin_speed = AIR_PORT_SPEED_AUTO;
+	                            port_cfg_info.admin_speed = 0; /*auto*/
+	                            break;
 	                    }
 	                }
 					cJSON *duplex_obj = cJSON_GetObjectItemCaseSensitive(data_obj, "du");
 		            if (duplex_obj) {
 		                switch (duplex_obj->valueint) {
-		                    case 1:
-		                        port_cfg_info.admin_duplex = AIR_PORT_DUPLEX_FULL;
+		                	case 1:
+		                        port_cfg_info.admin_duplex = 0;
 		                        break;
-		                    case 0:
+		                    case 3:
 		                        port_cfg_info.admin_duplex = AIR_PORT_DUPLEX_HALF;
+		                        break;
+		                    case 4:
+		                        port_cfg_info.admin_duplex = AIR_PORT_DUPLEX_FULL;
 		                        break;
 		                    default:
 		                        // port_cfg_info.admin_duplex = AIR_PORT_DUPLEX_AUTO;
@@ -2810,33 +2798,37 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
             memcpy(&port_mirror_info, db_data, sizeof(DB_PORT_MIRROR_INFO_T));
             mqtt_free(ptr_db_msg);
             // get direction
-            int dir_int;
+            int dir_int,port_int;
             cJSON *dir_obj = cJSON_GetObjectItemCaseSensitive(port_mirror_obj, "dir");
-            if (dir_obj) {
-                dir_int = dir_obj->valueint;
-            }
-            // get src port
-            cJSON *first_element = NULL;
             cJSON *src_port_obj = cJSON_GetObjectItemCaseSensitive(port_mirror_obj, "sp");
-            if (src_port_obj) {
-                if (cJSON_IsArray(src_port_obj)) {
-                    first_element = cJSON_GetArrayItem(src_port_obj, 0);
-                }
-            }
-            // ingress
-            if (dir_int == 0) {
-                if (first_element) {
-                    port_mirror_info.src_in_port[session_id] = first_element->valueint;
-                }
-            } else if (dir_int == 1) {
-                if (first_element) {
-                    port_mirror_info.src_eg_port[session_id] = first_element->valueint;
-                }
-            } else {
-                mqttd_debug("port_mirror_info unknown direction(%d)\n", dir_int);
+            if (cJSON_GetArraySize(dir_obj) != cJSON_GetArraySize(src_port_obj)) {
+                mqttd_debug("The length of dir_obj and src_port_obj JSON arrays are not equal.\n");
                 break;
             }
-            
+            cJSON *src_port_element = NULL;
+            cJSON *dir_element = NULL;
+            int index = 0;
+            int src_port_size = cJSON_GetArraySize(src_port_obj);
+            for (index = 0; index < src_port_size; index++) {
+                src_port_element = cJSON_GetArrayItem(src_port_obj, index);
+                dir_element = cJSON_GetArrayItem(dir_obj, index);
+                if (cJSON_IsNumber(src_port_element) && cJSON_IsNumber(dir_element)) {
+                    port_int = src_port_element->valueint;
+                    dir_int = dir_element->valueint;
+                    if (dir_int == 1) {
+                        port_mirror_info.src_in_port[index] |= (1 << (port_int - 1));
+                    } else if (dir_int == 2) {
+                        port_mirror_info.src_eg_port[index] |= (1 << (port_int - 1));
+                    } else if (dir_int == 3) {
+                        port_mirror_info.src_in_port[index] |= (1 << (port_int - 1));
+                        port_mirror_info.src_eg_port[index] |= (1 << (port_int - 1));
+                    } else {
+                        mqttd_debug("port_mirror_info unknown direction(%d)\n", dir_int);
+                        break;
+                    }
+                }
+            }
+
             // get dest port
             cJSON *dest_port_obj = cJSON_GetObjectItemCaseSensitive(port_mirror_obj, "tp");
             if (dest_port_obj) {
@@ -3851,30 +3843,30 @@ static MW_ERROR_NO_T _mqttd_handle_capability(MQTTD_CTRL_T *mqttdctl,  cJSON *ms
     cJSON_AddItemToObject(data, "remote_protocols", cJSON_CreateStringArray((const char*[]){"http"}, 1));
     cJSON_AddItemToObject(data, "device_operations", cJSON_CreateStringArray((const char*[]){"reset", "reboot", "update"}, 3));
     cJSON_AddItemToObject(data, "port_stats_type", cJSON_CreateStringArray((const char*[]){"data", "packet"}, 2));
-    cJSON_AddBoolToObject(data, "loop_check", true);
+    //cJSON_AddBoolToObject(data, "loop_check", true);
 
     cJSON_AddItemToObject(data, "port_setting", port_setting);
     cJSON_AddBoolToObject(port_setting, "enable", true);
     cJSON_AddItemToObject(port_setting, "duplex", cJSON_CreateStringArray((const char*[]){"auto", "half", "full"}, 3));
     cJSON_AddItemToObject(port_setting, "speed", cJSON_CreateStringArray((const char*[]){"auto", "10", "100", "1000"}, 4));
     cJSON_AddBoolToObject(port_setting, "flow_control", true);
-    cJSON_AddBoolToObject(port_setting, "EEE", false);
+    cJSON_AddBoolToObject(port_setting, "EEE", true);
 
     cJSON_AddItemToObject(data, "port_mirroring", port_mirroring);
     cJSON_AddNumberToObject(port_mirroring, "max_number", 8);
     cJSON_AddItemToObject(port_mirroring, "direction", cJSON_CreateStringArray((const char*[]){"egress", "ingress", "bi-directional"}, 3));
 
-    cJSON_AddNumberToObject(data, "port_isolate_group", 8);
+    //cJSON_AddNumberToObject(data, "port_isolate_group", 8);
 
     cJSON_AddItemToObject(data, "static_mac", static_mac);
     cJSON_AddNumberToObject(static_mac, "max", 32);
     cJSON_AddBoolToObject(static_mac, "VLAN_attribution", true);
     cJSON_AddBoolToObject(static_mac, "port_attribution", true);
 
-    cJSON_AddItemToObject(data, "filter_mac", filter_mac);
-    cJSON_AddNumberToObject(filter_mac, "max", 8);
-    cJSON_AddBoolToObject(filter_mac, "VLAN_attribution", true);
-    cJSON_AddBoolToObject(filter_mac, "port_attribution", false);
+    //cJSON_AddItemToObject(data, "filter_mac", filter_mac);
+    //cJSON_AddNumberToObject(filter_mac, "max", 8);
+    //cJSON_AddBoolToObject(filter_mac, "VLAN_attribution", true);
+    //cJSON_AddBoolToObject(filter_mac, "port_attribution", false);
 
     cJSON_AddItemToObject(data, "vlan_range", vlan_range);
     cJSON_AddNumberToObject(vlan_range, "min", 1);
@@ -3898,7 +3890,7 @@ static MW_ERROR_NO_T _mqttd_handle_capability(MQTTD_CTRL_T *mqttdctl,  cJSON *ms
     cJSON_AddItemToObject(vlan_type_hybrid, "option", cJSON_CreateStringArray((const char*[]){"PVID", "tag_VLAN", "untag_VLAN"}, 3));
     cJSON_AddItemToArray(vlan_type, vlan_type_hybrid);
 
-
+#if 0
     cJSON_AddItemToObject(data, "port_limit_rate", port_limit_rate);
     cJSON_AddBoolToObject(port_limit_rate, "enable", true);
     cJSON_AddItemToObject(port_limit_rate, "direction", cJSON_CreateStringArray((const char*[]){"egress", "ingress", "bi-directional"}, 3));
@@ -3914,7 +3906,7 @@ static MW_ERROR_NO_T _mqttd_handle_capability(MQTTD_CTRL_T *mqttdctl,  cJSON *ms
     cJSON_AddNumberToObject(storm_control_range, "min", 0);
     cJSON_AddNumberToObject(storm_control_range, "max", 1000);
     cJSON_AddItemToObject(storm_control, "range", storm_control_range);
-
+#endif
     mqtt_send_json_and_free(mqttdctl, topic, root);
 
     return rc;
@@ -4036,7 +4028,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_setting(MQTTD_CTRL_T *mqttdctl
     DB_MSG_T *ptr_db_msg = NULL;
     u16_t db_size = 0;
     void *db_data = NULL;
-    osapi_printf("_mqttd_handle_getconfig_port_setting.\n");
+    osapi_printf("mqttd_handle_getconfig_port_setting.\n");
     cJSON *json_port_info = cJSON_CreateArray();
     if (json_port_info == NULL)
     {
@@ -4064,9 +4056,24 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_setting(MQTTD_CTRL_T *mqttdctl
             return MW_E_NO_MEMORY;
         }
 
-        cJSON_AddNumberToObject(json_port_entry, "en", port_cfg_info.admin_status);
+        char port_name[10];
+        snprintf(port_name, sizeof(port_name), "port%d", i);
+        cJSON_AddStringToObject(json_port_entry, "n", port_name);
+        cJSON_AddNumberToObject(json_port_entry, "en", port_cfg_info.admin_status>0?1:0);
+		/*an: 0
+		10M:1
+		100M:2
+		1000M:3*/
         cJSON_AddNumberToObject(json_port_entry, "sp", port_cfg_info.admin_speed);
-        cJSON_AddNumberToObject(json_port_entry, "du", port_cfg_info.admin_duplex);
+		
+        /*Duplex
+		half: 0
+		full: 1*/
+        if(port_cfg_info.admin_speed == 0)
+        	cJSON_AddNumberToObject(json_port_entry, "du", 0);
+        else
+        	cJSON_AddNumberToObject(json_port_entry, "du", port_cfg_info.admin_duplex+3);
+
 		cJSON_AddNumberToObject(json_port_entry, "fc_p", port_cfg_info.admin_flow_ctrl);
 		cJSON_AddNumberToObject(json_port_entry, "EEE", port_cfg_info.eee_enable);
 
@@ -4095,7 +4102,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
     DB_MSG_T *ptr_db_msg = NULL;
     u16_t db_size = 0;
     void *db_data = NULL;
-	osapi_printf("mqttd_handle_getconfig_static_mac.\n");
+	osapi_printf("mqttd_handle_getconfig_port_mirroring.\n");
     memset(&port_mirror_info, 0, sizeof(DB_PORT_MIRROR_INFO_T));
     rc = mqttd_queue_getData(PORT_MIRROR_INFO, DB_ALL_FIELDS, DB_ALL_ENTRIES, &ptr_db_msg, &db_size, &db_data);
     if(MW_E_OK != rc)
@@ -4112,7 +4119,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
         mqttd_debug("Failed to create JSON array for port_mirror_info.");
         return MW_E_NO_MEMORY;
     }
-    int i;
+    int i,j;
     for (i = 0; i < MAX_MIRROR_SESS_NUM; i++)
     {
         //blank entry
@@ -4120,33 +4127,31 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_port_mirroring(MQTTD_CTRL_T *mqttdc
         if(port_mirror_info.enable[i] == 0)
             continue;
         #endif
-        cJSON *json_port_mirror_entry = cJSON_CreateObject();
-        if (json_port_mirror_entry == NULL)
-        {
-            mqttd_debug("Failed to create JSON object for port_mirror entry.");
-            cJSON_Delete(json_port_mirror_info);
-            return MW_E_NO_MEMORY;
-        }
-        cJSON_AddNumberToObject(json_port_mirror_entry, "gid", i);
-        cJSON *json_src_in_ports = cJSON_CreateArray();
-        cJSON_AddItemToArray(json_src_in_ports, cJSON_CreateNumber(port_mirror_info.src_in_port[i]));
-        cJSON_AddItemToObject(json_port_mirror_entry, "sp", json_src_in_ports);
-        cJSON_AddNumberToObject(json_port_mirror_entry, "tp", port_mirror_info.src_eg_port[i]);
-        if(port_mirror_info.src_in_port[i] != 0 && port_mirror_info.src_eg_port[i] != 0)
-        {
-            cJSON_AddNumberToObject(json_port_mirror_entry, "dir", 3);
-        }
-        else if(port_mirror_info.src_in_port[i] != 0)
-        {
-            cJSON_AddNumberToObject(json_port_mirror_entry, "dir", 1);
-        }
-        else if(port_mirror_info.src_eg_port[i] != 0)
-        {
-            cJSON_AddNumberToObject(json_port_mirror_entry, "dir", 2);
-        }
-        cJSON_AddItemToArray(json_port_mirror_info, json_port_mirror_entry);
-    }
 
+		cJSON *json_port_mirror_entry = cJSON_CreateObject();
+		cJSON_AddNumberToObject(json_port_mirror_entry, "gid", i);
+		cJSON *json_src_in_ports = cJSON_CreateArray();
+		cJSON *json_src_dir = cJSON_CreateArray();
+		for (j = 0; j < PLAT_MAX_PORT_NUM; j++) 
+		{
+		    if (port_mirror_info.src_in_port[i] & (1 << j) || port_mirror_info.src_eg_port[i] & (1 << j)) 
+		    {
+		        cJSON_AddItemToArray(json_src_in_ports, cJSON_CreateNumber(i+1));
+		        
+		        if(port_mirror_info.src_in_port[i] & (1 << j) && port_mirror_info.src_eg_port[i] & (1 << j))
+		            cJSON_AddItemToArray(json_src_dir, cJSON_CreateNumber(3));
+		        else if(port_mirror_info.src_in_port[i] & (1 << j))
+		            cJSON_AddItemToArray(json_src_dir, cJSON_CreateNumber(1));
+		        else if(port_mirror_info.src_eg_port[i] & (1 << j))
+		            cJSON_AddItemToArray(json_src_dir, cJSON_CreateNumber(2));
+		    }
+			cJSON_AddItemToObject(json_port_mirror_entry, "sp", json_src_in_ports);
+			cJSON_AddItemToObject(json_port_mirror_entry, "dir", json_src_dir);
+			cJSON_AddNumberToObject(json_port_mirror_entry, "tp", port_mirror_info.dest_port[i]);
+	        
+	        cJSON_AddItemToArray(json_port_mirror_info, json_port_mirror_entry);
+    	}
+	}
     cJSON_AddItemToObject(data_obj, "port_mirroring", json_port_mirror_info);
 #if 0
     char *data_obj_str = cJSON_Print(data_obj);
@@ -4192,7 +4197,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
     for (i = 0; i < MAX_STATIC_MAC_NUM; i++)
     {
         //blank entry
-        #if 0
+        #if 1
         if(static_mac_info.port[i] == 0)
             continue;
         #endif
@@ -4607,6 +4612,11 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_data(MQTTD_CTRL_T *mqttdctl,  cJSON
                 }
                 // Handle "port_mirroring" case
             } else if (osapi_strcmp(child->valuestring, "port_mirroring") == 0) {
+            	rc = _mqttd_handle_getconfig_port_mirroring(mqttdctl, data);
+                if (MW_E_OK != rc) {
+                    mqttd_debug("Handling setConfig device failed.");
+                    break;
+                }
                 // Handle "port_isolate" case
             } else if (osapi_strcmp(child->valuestring, "port_isolate") == 0) {
                 // Handle "static_mac" case
@@ -4885,7 +4895,7 @@ static void _mqttd_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t
         cJSON *json_obj = cJSON_Parse((const char *)ptr_mqttd->mqtt_buff);
         if (json_obj == NULL)
         {
-            mqttd_debug("Failed to parse JSON data.");
+            osapi_printf("Failed to parse JSON data.");
             return;
         }
 		MW_ERROR_NO_T rc = MW_E_OK;
