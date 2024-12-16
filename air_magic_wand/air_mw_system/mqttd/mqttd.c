@@ -264,6 +264,11 @@ typedef struct ONE_DB_PORT_MIRROR_INFO_S
     UI32_T          src_eg_port; /* The egress traffic of the source port */
 } ATTRIBUTE_PACK ONE_DB_PORT_MIRROR_INFO_T;
 
+typedef struct ONE_DB_STATIC_MAC_ENTRY_S{
+    MW_MAC_T    mac_addr; /* The static MAC address */
+    UI16_T      vid;      /* The VID of the static MAC */
+    UI16_T      port;     /* The port of the static MAC */
+}ONE_DB_STATIC_MAC_ENTRY_T;
 
 /* GLOBAL VARIABLE DECLARATIONS
 */
@@ -453,6 +458,58 @@ mqttd_transStrToIpv4Addr(
     *ptr_addr |= value << (24 - shift * 8);
 
     return (MW_E_OK);
+}
+
+static MW_ERROR_NO_T mqttd_transStrToMacAddr(const char *mac_str, MW_MAC_T mac_addr) 
+{
+    int i;
+    unsigned int value;
+
+    // 检查输入参数
+    if (!mac_str || !mac_addr) {
+        return MW_E_BAD_PARAMETER;
+    }
+
+    // 检查MAC地址字符串长度 (应为17: XX:XX:XX:XX:XX:XX)
+    if (osapi_strlen(mac_str) != 17) {
+        return MW_E_BAD_PARAMETER;
+    }
+
+    // 解析MAC地址字符串
+    for (i = 0; i < 6; i++) {
+        value = 0;
+        
+        // 处理第一个十六进制字符
+        if (mac_str[i*3] >= '0' && mac_str[i*3] <= '9') {
+            value = (mac_str[i*3] - '0') << 4;
+        } else if (mac_str[i*3] >= 'A' && mac_str[i*3] <= 'F') {
+            value = (mac_str[i*3] - 'A' + 10) << 4;
+        } else if (mac_str[i*3] >= 'a' && mac_str[i*3] <= 'f') {
+            value = (mac_str[i*3] - 'a' + 10) << 4;
+        } else {
+            return MW_E_BAD_PARAMETER;
+        }
+
+        // 处理第二个十六进制字符
+        if (mac_str[i*3 + 1] >= '0' && mac_str[i*3 + 1] <= '9') {
+            value |= (mac_str[i*3 + 1] - '0');
+        } else if (mac_str[i*3 + 1] >= 'A' && mac_str[i*3 + 1] <= 'F') {
+            value |= (mac_str[i*3 + 1] - 'A' + 10);
+        } else if (mac_str[i*3 + 1] >= 'a' && mac_str[i*3 + 1] <= 'f') {
+            value |= (mac_str[i*3 + 1] - 'a' + 10);
+        } else {
+            return MW_E_BAD_PARAMETER;
+        }
+
+        // 检查分隔符 (除了最后一组)
+        if (i < 5 && mac_str[i*3 + 2] != ':') {
+            return MW_E_BAD_PARAMETER;
+        }
+
+        mac_addr[i] = (unsigned char)value;
+    }
+
+    return MW_E_OK;
 }
 
 /*send json and free*/
@@ -1742,11 +1799,55 @@ static MW_ERROR_NO_T _mqttd_publish_port_mirroring(MQTTD_CTRL_T *ptr_mqttd,  con
 static MW_ERROR_NO_T _mqttd_publish_static_mac(MQTTD_CTRL_T *ptr_mqttd,  const DB_REQUEST_TYPE_T *req, const void *ptr_data)
 {
     MW_ERROR_NO_T rc = MW_E_OK;
-	DB_STATIC_MAC_ENTRY_T static_mac_info;
+	
     DB_MSG_T *ptr_db_msg = NULL;
     u16_t db_size = 0;
     void *db_data = NULL;
 	osapi_printf("publish static mac: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
+	
+	if(req->f_idx != DB_ALL_FIELDS)
+		return MW_E_OK;
+
+#if 1
+	ONE_DB_STATIC_MAC_ENTRY_T mac_data;
+	memset(&mac_data, 0, sizeof(mac_data));
+	 rc = mqttd_queue_getData(STATIC_MAC_ENTRY, DB_ALL_FIELDS, req->e_idx, &ptr_db_msg, &db_size, &db_data);
+    if(MW_E_OK != rc)
+    {
+        mqttd_debug("Get org DB static_mac_info failed(%d)\n", rc);
+		return rc;
+    }
+	memcpy(&mac_data, db_data, sizeof(mac_data));
+    mqtt_free(ptr_db_msg);
+
+    if(mac_data.port != 0 && mac_data.vid != 0)
+    {
+    	char topic[80];
+	    osapi_snprintf(topic, sizeof(topic), "%s/event", ptr_mqttd->topic_prefix);
+		cJSON *root = cJSON_CreateObject();
+	    cJSON *data = cJSON_CreateObject();
+		cJSON *json_mac_info = cJSON_CreateArray();    
+		cJSON_AddStringToObject(root, "type", "config");
+		cJSON_AddItemToObject(root, "data", data);
+	    cJSON_AddItemToObject(data, "static_mac", json_mac_info);
+	    cJSON *json_mac_entry = cJSON_CreateObject();
+	    
+	     char mac_str[18];
+        snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
+                 mac_data.mac_addr[0], mac_data.mac_addr[1],
+                 mac_data.mac_addr[2], mac_data.mac_addr[3],
+                 mac_data.mac_addr[4], mac_data.mac_addr[5]);
+        cJSON_AddStringToObject(json_mac_entry, "mac", mac_str);
+        cJSON_AddNumberToObject(json_mac_entry, "vid", mac_data.vid);
+        cJSON_AddNumberToObject(json_mac_entry, "p", mac_data.port);
+
+        cJSON_AddItemToArray(json_mac_info, json_mac_entry);
+        
+        mqtt_send_json_and_free(ptr_mqttd, topic, root);
+    }
+    
+#else
+    DB_STATIC_MAC_ENTRY_T static_mac_info;
     memset(&static_mac_info, 0, sizeof(DB_STATIC_MAC_ENTRY_T));
     rc = mqttd_queue_getData(STATIC_MAC_ENTRY, DB_ALL_FIELDS, DB_ALL_ENTRIES, &ptr_db_msg, &db_size, &db_data);
     if(MW_E_OK != rc)
@@ -1793,8 +1894,8 @@ static MW_ERROR_NO_T _mqttd_publish_static_mac(MQTTD_CTRL_T *ptr_mqttd,  const D
 
         cJSON_AddItemToArray(json_mac_info, json_mac_entry);
     }
-
-	mqtt_send_json_and_free(ptr_mqttd, topic, root);
+    mqtt_send_json_and_free(ptr_mqttd, topic, root);
+#endif
 
 	return rc;
 }
@@ -2928,7 +3029,6 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
     void *db_data = NULL;
 
     cJSON *static_mac_obj;
-    int idx = 0;
     memset(&static_mac_info, 0, sizeof(DB_STATIC_MAC_ENTRY_T));
     rc = mqttd_queue_getData(STATIC_MAC_ENTRY, DB_ALL_FIELDS, DB_ALL_ENTRIES, &ptr_db_msg, &db_size, &db_data);
     if (MW_E_OK != rc) {
@@ -2940,7 +3040,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
     int i;
     cJSON_ArrayForEach(static_mac_obj, data_obj) 
     {
-        if (cJSON_IsObject(static_mac_obj) && idx < MAX_STATIC_MAC_NUM) 
+        if (cJSON_IsObject(static_mac_obj)) 
         {
             cJSON *mac_obj = cJSON_GetObjectItemCaseSensitive(static_mac_obj, "mac");
             cJSON *vid_obj = cJSON_GetObjectItemCaseSensitive(static_mac_obj, "vid");
@@ -2948,16 +3048,14 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
             cJSON *cmd_obj = cJSON_GetObjectItemCaseSensitive(static_mac_obj, "cmd");
             if (!mac_obj || !cmd_obj || !port_obj || !vid_obj) 
             {
-                mqttd_debug("static_mac_obj is invalid\n");
+                osapi_printf("static_mac_obj is invalid\n");
                 break;
             }
             MW_MAC_T conf_mac_addr;
             memset(&conf_mac_addr, 0, sizeof(MW_MAC_T));
-            if (6 != sscanf(mac_obj->valuestring, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-                       &conf_mac_addr[0], &conf_mac_addr[1],
-                       &conf_mac_addr[2], &conf_mac_addr[3],
-                       &conf_mac_addr[4], &conf_mac_addr[5])) {
-                mqttd_debug("Invalid MAC address format: %s\n", mac_obj->valuestring);
+            rc = mqttd_transStrToMacAddr(mac_obj->valuestring, &conf_mac_addr);
+            if (MW_E_OK != rc) {
+                osapi_printf("Invalid MAC address format: %s\n", mac_obj->valuestring);
                 break;
             }
             UI16_T vid = vid_obj->valueint;
@@ -2973,6 +3071,12 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
                 int found = 0;
 
                 for (i = 0; i < MAX_STATIC_MAC_NUM; i++) {
+                
+                	/*osapi_printf("static mac[%d]: %02x:%02x:%02x:%02x:%02x:%02x, vid: %d, port: %d\n", i,
+                        static_mac_info.mac_addr[i][0], static_mac_info.mac_addr[i][1], static_mac_info.mac_addr[i][2],
+                        static_mac_info.mac_addr[i][3], static_mac_info.mac_addr[i][4], static_mac_info.mac_addr[i][5],
+                        static_mac_info.vid[i], static_mac_info.port[i]);*/
+                        
                     if (memcmp(static_mac_info.mac_addr[i], conf_mac_addr, sizeof(MW_MAC_T)) == 0 && static_mac_info.vid[i] == vid) {
                         // Found a matching entry
                         found = 1;
@@ -2983,11 +3087,19 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
                 if (!found) {
                 	int find_blank = 0;
                     for (i = 0; i < MAX_STATIC_MAC_NUM; i++) {
-                        if (static_mac_info.vid[i] == 0) {
+
+                        if (static_mac_info.vid[i] == 0 && static_mac_info.port[i] == 0) {
                             // Found an empty entry
-                            memcpy(static_mac_info.mac_addr[i], conf_mac_addr, sizeof(MW_MAC_T));
-                            static_mac_info.vid[i] = vid;
-                            static_mac_info.port[i] = port;
+                            ONE_DB_STATIC_MAC_ENTRY_T mac_data = {0};
+                            memcpy(mac_data.mac_addr, conf_mac_addr, sizeof(MW_MAC_T));
+                            mac_data.vid = vid;
+                            mac_data.port = port;
+                            rc = mqttd_queue_setData(M_CREATE, STATIC_MAC_ENTRY, DB_ALL_FIELDS, i+1, &mac_data, sizeof(mac_data));
+                            if (MW_E_OK != rc) {
+                                mqttd_debug("Update DB static_mac_info failed(%d)\n", rc);
+                                break;
+                            }
+                            osapi_delay(100);
                             find_blank= 1;
                             break;
                         }
@@ -3013,13 +3125,16 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
                 int found = 0;
 
                 for (i = 0; i < MAX_STATIC_MAC_NUM; i++) {
-                    if (memcmp(static_mac_info.mac_addr[i], conf_mac_addr, sizeof(MW_MAC_T)) == 0 && static_mac_info.vid[i] == vid) {
+                    if (memcmp(static_mac_info.mac_addr[i], conf_mac_addr, sizeof(MW_MAC_T)) == 0 && static_mac_info.vid[i] == vid && static_mac_info.port[i] == port) {
                         // Found a matching entry
                         found = 1;
-                        // Clear the entry
-                        memset(static_mac_info.mac_addr[i], 0, sizeof(MW_MAC_T));
-                        static_mac_info.vid[i] = 0;
-                        static_mac_info.port[i] = 0;
+                        // delete the entry
+                        rc = mqttd_queue_setData(M_DELETE, STATIC_MAC_ENTRY, DB_ALL_FIELDS, i+1, NULL, 0);
+                        if (MW_E_OK != rc) {
+                            mqttd_debug("Delete DB static_mac_info failed(%d)\n", rc);
+                            break;
+                        }
+                        
                         break;
                     }
                 }
@@ -3038,8 +3153,23 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
                     if (memcmp(static_mac_info.mac_addr[i], conf_mac_addr, sizeof(MW_MAC_T)) == 0 && static_mac_info.vid[i] == vid) {
                         // Found a matching entry
                         found = 1;
-                        // Modify the entry
-                        static_mac_info.port[i] = port;
+                        // delete the entry
+                        rc = mqttd_queue_setData(M_DELETE, STATIC_MAC_ENTRY, DB_ALL_FIELDS, i+1, NULL, 0);
+                        if (MW_E_OK != rc) {
+                            mqttd_debug("Delete DB static_mac_info failed(%d)\n", rc);
+                            break;
+                        }
+                        osapi_delay(100);
+                        //create new entry
+                        ONE_DB_STATIC_MAC_ENTRY_T mac_data = {0};
+                        memcpy(mac_data.mac_addr, conf_mac_addr, sizeof(MW_MAC_T));
+                        mac_data.vid = vid;
+                        mac_data.port = port;
+                        rc = mqttd_queue_setData(M_CREATE, STATIC_MAC_ENTRY, DB_ALL_FIELDS, i+1, &mac_data, sizeof(mac_data));
+                        if (MW_E_OK != rc) {
+                            mqttd_debug("Update DB static_mac_info failed(%d)\n", rc);
+                            break;
+                        }
                         break;
                     }
                 }
@@ -3053,10 +3183,6 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
     	}
 	}
 
-    //rc = mqttd_queue_setData(M_UPDATE, STATIC_MAC_ENTRY, DB_ALL_FIELDS, DB_ALL_ENTRIES, &static_mac_info, sizeof(static_mac_info));
-    if (MW_E_OK != rc) {
-        mqttd_debug("Update DB static_mac_info failed(%d)\n", rc);
-    }
     return rc;
 }
 
