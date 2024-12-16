@@ -1949,7 +1949,7 @@ _mqttd_listen_db(
     UI8_T count = 0;
     UI8_T method = 0;
     DB_REQUEST_TYPE_T req;
-
+    
     /* Block mode to receive the DB message */
     rc = dbapi_recvMsg(
             MQTTD_QUEUE_NAME,
@@ -3196,7 +3196,7 @@ static MW_ERROR_NO_T _mqttd_vlan_mode_get(){
 
 static MW_ERROR_NO_T _mqttd_vlan_mode_set(u8_t vlan_mode){
     MW_ERROR_NO_T rc = MW_E_OK;
-    return rc;
+    
     //获取mode
     DB_MSG_T *ptr_db_msg = NULL;
     DB_MSG_T *ptr_msg = NULL;
@@ -3294,7 +3294,6 @@ static MW_ERROR_NO_T _mqttd_vlan_mode_set(u8_t vlan_mode){
         mqttd_debug("Update DB vlan entry failed(%d)\n", rc);
         return rc;
     }
-    return rc;
     
     mqttd_debug("Clear all VLAN_ENTRY except default VLAN start \n");
     //清空其他VLAN
@@ -3495,11 +3494,10 @@ static MW_ERROR_NO_T _mqttd_vlan_entry_add(VLAN_ENTRY_INFO_T *ptr_vlan_entry, u1
             }
 
             vlan_entry_set = *vlan_entry;
-            MW_FREE(vlan_entry);
+            MW_FREE(ptr_msg);
             vlan_entry = NULL;
             break;
         }
-        
         if(0 == empty_vlan_entry){
             if((vlan_entry->vlan_id == 0) 
             || ((vlan_entry->vlan_id == i) && (vlan_entry->port_member == 0) && (vlan_entry->tagged_member == 0) && (vlan_entry->untagged_member == 0)))
@@ -3510,8 +3508,7 @@ static MW_ERROR_NO_T _mqttd_vlan_entry_add(VLAN_ENTRY_INFO_T *ptr_vlan_entry, u1
                 vlan_entry_set = *ptr_vlan_entry;
             }
         }
-
-        MW_FREE(vlan_entry);
+        MW_FREE(ptr_msg);
         vlan_entry = NULL;
     }
     
@@ -3519,7 +3516,6 @@ static MW_ERROR_NO_T _mqttd_vlan_entry_add(VLAN_ENTRY_INFO_T *ptr_vlan_entry, u1
         mqttd_debug("vlan_entry full vid:%d\n", ptr_vlan_entry->vlan_id);
         return MW_E_ENTRY_NOT_FOUND;
     }
-
     rc = mqttd_queue_setData(M_UPDATE, VLAN_ENTRY, DB_ALL_FIELDS, vidx, &vlan_entry_set, sizeof(VLAN_ENTRY_INFO_T));
     if(MW_E_OK != rc)
     {
@@ -3942,7 +3938,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_vlan_setting(MQTTD_CTRL_T *mqttdctl
     int idx = 0;
 
     //设置vlan mode
-    rc =_mqttd_vlan_mode_set(VLAN_1Q_ENABLE);
+    //rc =_mqttd_vlan_mode_set(VLAN_1Q_ENABLE);
     if(MW_E_OK != rc){
         mqttd_debug("set vlan mode failed(%d)\n", rc);
         return rc;
@@ -5371,6 +5367,84 @@ static MW_ERROR_NO_T  _mqttd_handle_reboot(MQTTD_CTRL_T *mqttdctl,  cJSON *msgid
     return rc;
 }
 
+static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_obj)
+{
+    int rc = MW_E_OK;
+    cJSON *root = NULL;
+    cJSON *version = NULL;
+    cJSON *download = NULL;
+    cJSON *md5 = NULL;
+    cJSON *encryption = NULL;
+    cJSON *secret_key = NULL;
+    cJSON *method = NULL;
+    cJSON *data_obj = NULL;
+    cJSON *msgid_obj = NULL;
+    
+    mqttd_debug("Handling update type.");
+	/* PUBLISH capability with rx topic */
+	 char topic[80];
+	 osapi_snprintf(topic, sizeof(topic), "%s/rx", mqttdctl->topic_prefix);
+
+    /* parser params to db format */
+    data_obj = cJSON_GetObjectItemCaseSensitive(json_obj, "data");
+    msgid_obj = cJSON_GetObjectItemCaseSensitive(json_obj, "msg_id");
+
+    // 访问 data 字段
+    if (cJSON_IsObject(data_obj)) {
+        version = cJSON_GetObjectItemCaseSensitive(data_obj, "version");
+        download = cJSON_GetObjectItemCaseSensitive(data_obj, "download");
+        md5 = cJSON_GetObjectItemCaseSensitive(data_obj, "md5");
+        encryption = cJSON_GetObjectItemCaseSensitive(data_obj, "encryption");
+        secret_key = cJSON_GetObjectItemCaseSensitive(data_obj, "secret_key");
+        method = cJSON_GetObjectItemCaseSensitive(data_obj, "method");
+
+        if (cJSON_IsString(version) && (version->valuestring != NULL)) {
+            mqttd_debug("Version: %s\n", version->valuestring);
+        }
+
+        if (cJSON_IsArray(download)) {
+            cJSON *item;
+            cJSON_ArrayForEach(item, download) {
+                if (cJSON_IsString(item) && (item->valuestring != NULL)) {
+                    //仅支持一个链接
+                    mqttd_debug("Download URL: %s\n", item->valuestring);
+                    download = item;
+                    break;
+                }
+            }
+        }
+
+        if (cJSON_IsString(md5) && (md5->valuestring != NULL)) {
+            mqttd_debug("MD5: %s\n", md5->valuestring);
+        }
+
+        if (cJSON_IsString(encryption) && (encryption->valuestring != NULL)) {
+            mqttd_debug("Encryption: %s\n", encryption->valuestring);
+        }
+
+        if (cJSON_IsString(secret_key) && (secret_key->valuestring != NULL)) {
+            mqttd_debug("Secret Key: %s\n", secret_key->valuestring);
+        }
+
+        if (cJSON_IsNumber(method)) {
+            mqttd_debug("Method: %d\n", method->valueint);
+        }
+    }
+
+    //create rx json
+    // 创建一个新的 JSON 对象
+    root = cJSON_CreateObject();
+
+    // 添加键值对到 JSON 对象
+    cJSON_AddStringToObject(root, "type", "update");
+    cJSON_AddStringToObject(root, "msg_id", msgid_obj->valuestring);
+    cJSON_AddStringToObject(root, "result", "ok");
+
+    mqtt_send_json_and_free(mqttdctl, topic, root); 
+
+    return rc;
+}
+
 #if 0
 /* FUNCTION NAME: _mqttd_incoming_data_cb
  * PURPOSE:
@@ -5612,7 +5686,16 @@ static void _mqttd_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t
             }
             else if (osapi_strcmp(type_str, "update") == 0 && (cJSON_IsObject(data_obj) && (data_obj->child != NULL)))
             {
-                mqttd_debug("Handling update type.");
+                mqttd_debug("Handling update type.");                
+                rc = _mqttd_handle_update(ptr_mqttd, json_obj); /* response inside */
+				if(rc != MW_E_OK)
+				{
+					mqttd_debug("Handling update failed.");
+				}
+				else
+				{
+					mqttd_debug("Handling update done.");
+				}
             }
             else if (osapi_strcmp(type_str, "logs") == 0 && (cJSON_IsObject(data_obj) && (data_obj->child != NULL)))
             {
