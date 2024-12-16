@@ -3728,38 +3728,23 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_vlan_setting(MQTTD_CTRL_T *mqttdctl
         return rc;
     }
 
-    //获取vlantype
-    cJSON_ArrayForEach(vlan_setting_obj, data_obj) {
-        if (cJSON_IsObject(vlan_setting_obj) && idx < MAX_VLAN_ENTRY_NUM) {
-            // 获取 ty 字段 type
-            cJSON *ty = cJSON_GetObjectItemCaseSensitive(vlan_setting_obj, "ty");
-            if (cJSON_IsNumber(ty)) {
-                type = ty->valueint;
-                break;
-            }else{
-                mqttd_debug("ty is not number\n");
-                return MW_E_BAD_PARAMETER;
-            }
-            mqttd_debug("get type failed\n");
-        }
+    //每种类型都检测一遍
+    rc = _mqttd_handle_setconfig_access_vlan_process(mqttdctl, data_obj);
+    if(MW_E_OK != rc){
+        mqttd_debug("set access vlan failed(%d)\n", rc);
+        return rc;
     }
 
-    if(MQTTD_PORT_VLAN_ACCESS == type){
-        //access vlan
-        rc = _mqttd_handle_setconfig_access_vlan_process(mqttdctl, data_obj);
+    rc = _mqttd_handle_setconfig_trunk_vlan_process(mqttdctl, data_obj);
+    if(MW_E_OK != rc){
+        mqttd_debug("set trunk vlan failed(%d)\n", rc);
+        return rc;
     }
-    else if(MQTTD_PORT_VLAN_TRUNK == type){
-        //trunk vlan
-        rc = _mqttd_handle_setconfig_trunk_vlan_process(mqttdctl, data_obj);
-    }
-    else if (MQTTD_PORT_VLAN_HYBRID == type)
-    {
-        // hybrid vlan
-        rc = _mqttd_handle_setconfig_hybrid_vlan_process(mqttdctl, data_obj);
-    }
-    else {
-        mqttd_debug("type is not support\n");
-        return MW_E_BAD_PARAMETER;    
+
+    rc = _mqttd_handle_setconfig_hybrid_vlan_process(mqttdctl, data_obj);
+    if(MW_E_OK != rc){
+        mqttd_debug("set hybrid vlan failed(%d)\n", rc);
+        return rc;
     }
 
     return rc;    
