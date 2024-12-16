@@ -477,6 +477,7 @@ mqttd_queue_setData(
     if (MW_E_OK != rc)
     {
         mqttd_debug_db("%s: mqttd_queue_send failed(%d)\n", __func__, rc);
+        return rc;
     }
     /* wait for respond messgae and free ptr_msg */
     rc = mqttd_get_queue_recv((void **)&ptr_msg);
