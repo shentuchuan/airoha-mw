@@ -3251,6 +3251,84 @@ static MW_ERROR_NO_T _mqttd_vlan_mode_set(u8_t vlan_mode){
 //如果存在vlan idx 则增量添加端口，不存在则增加vlan entry
 static MW_ERROR_NO_T _mqttd_vlan_entry_add(VLAN_ENTRY_INFO_T *ptr_vlan_entry, u16_t *ptr_vidx){
     MW_ERROR_NO_T rc = MW_E_OK;
+    DB_MSG_T *ptr_msg = NULL;
+    UI16_T size = 0;
+    u16_t vidx = 0; 
+    u32_t tmp_bpm = 0;
+    u8_t i = 0;
+    u8_t port = 0;
+    u8_t empty_vlan_entry = 0;
+    VLAN_ENTRY_INFO_T *vlan_entry = NULL;
+    VLAN_ENTRY_INFO_T vlan_entry_set = {0};
+
+    *ptr_vidx = 0;
+
+    //遍历vlan配置
+    for(i = 1; i < MAX_VLAN_ENTRY_NUM+1; i++)
+    {
+        vlan_entry = NULL;        
+        /* Get DB VLAN_ENTRY */
+        rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, i, &ptr_msg, &size, (void **)&vlan_entry);
+        if(MW_E_OK != rc)
+        {
+            mqttd_debug("get vlan cfg failed(%d)\n", rc);
+            return rc;
+        }
+
+        if(ptr_vlan_entry->vlan_id == vlan_entry->vlan_id){
+            vidx = i;
+            for(port=0; port < PLAT_MAX_PORT_NUM; port++){
+                tmp_bpm = 1 << port;
+                if(ptr_vlan_entry->port_member & tmp_bpm){
+                    vlan_entry->port_member |= tmp_bpm;
+                }
+                if(ptr_vlan_entry->tagged_member & tmp_bpm){
+                    vlan_entry->tagged_member |= tmp_bpm;
+                }
+                if(ptr_vlan_entry->untagged_member & tmp_bpm){
+                    vlan_entry->untagged_member |= tmp_bpm;
+                }
+            }
+
+            vlan_entry_set = *vlan_entry;
+            MW_FREE(vlan_entry);
+            vlan_entry = NULL;
+            break;
+        }
+        
+        if(0 == empty_vlan_entry){
+            if((vlan_entry->vlan_id == 0) 
+            || ((vlan_entry->vlan_id == i) && (vlan_entry->port_member == 0) && (vlan_entry->tagged_member == 0) && (vlan_entry->untagged_member == 0)))
+            {
+                empty_vlan_entry = i;
+                vidx = i;
+                //保存vlan内容
+                vlan_entry_set = *ptr_vlan_entry;
+            }
+        }
+
+        MW_FREE(vlan_entry);
+        vlan_entry = NULL;
+    }
+    
+    if(0 == vidx){
+        mqttd_debug("vlan_entry full vid:%d\n", ptr_vlan_entry->vid);
+        return MW_E_ENTRY_NOT_FOUND;
+    }
+
+    rc = mqttd_queue_setData(M_UPDATE, VLAN_ENTRY, DB_ALL_FIELDS, vidx, &vlan_entry_set, sizeof(VLAN_ENTRY_INFO_T));
+    if(MW_E_OK != rc)
+    {
+        mqttd_debug("set vlan cfg failed(%d)\n", rc);
+        return rc;
+    }
+    *ptr_vidx = vidx;            
+    return rc;
+}
+
+// 一次性模式下，增加vlan entry
+static MW_ERROR_NO_T _mqttd_perf_vlan_entry_add(VLAN_ENTRY_INFO_T *ptr_vlan_entry, u16_t *ptr_vidx){
+    MW_ERROR_NO_T rc = MW_E_OK;
     DB_VLAN_ENTRY_T *ptr_vlan_entry_tbl = NULL;
     DB_MSG_T *ptr_msg = NULL;
     UI16_T size = 0;

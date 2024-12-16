@@ -5,8 +5,8 @@ air_system/**
 bootloader/**
 
 #开放 mqttd 的目录
-!air_magic_wand/air_magic_wand/air_mw_system/mqttd
+!air_magic_wand/air_magic_wand/air_mw_system/mqttd/**
 
 #开放 lwip 中mqtt 的目录
-!freertos/app/lwip/lwip-2.1.2/src/apps/mqtt
-!freertos/app/lwip/lwip-2.1.2/src/include/lwip/apps
+!freertos/app/lwip/lwip-2.1.2/src/apps/mqtt/**
+!freertos/app/lwip/lwip-2.1.2/src/include/lwip/apps/**
