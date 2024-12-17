@@ -53,11 +53,11 @@
 /* MACRO FUNCTION DECLARATIONS
 */
 
-#ifdef MQTT_EASY_DUMP
+#ifndef MQTT_EASY_DUMP
 
-#define mqttd_debug      	printf
-#define mqttd_debug_pkt     printf
-#define mqttd_debug_db      printf
+#define mqttd_debug(...)      	printf(__VA_ARGS__)
+#define mqttd_debug_pkt(...)     printf(__VA_ARGS__)
+#define mqttd_debug_db(...)      printf(__VA_ARGS__)
 
 
 #else
