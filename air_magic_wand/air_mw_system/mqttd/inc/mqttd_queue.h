@@ -51,6 +51,7 @@
 */
 #define MQTTD_QUEUE_NAME            "mqd"
 #define MQTTD_GET_QUEUE_NAME        "mqg"
+#define MQTTD_TIMER_QUEUE_NAME      "mqt"
 #define MQTTD_QUEUE_LEN             (18)
 #define MQTTD_QUEUE_BLOCKTIMEOUT    (0xFFFFFFFF)
 #define MQTTD_QUEUE_TIMEOUT         (100)
@@ -71,5 +72,7 @@ MW_ERROR_NO_T mqttd_queue_recv(void **ptr_buf);
 MW_ERROR_NO_T mqttd_queue_send(const UI8_T method, const UI8_T t_idx, const UI8_T f_idx, const UI16_T e_idx, const void *ptr_data, const UI16_T size, DB_MSG_T **pptr_out_msg);
 MW_ERROR_NO_T mqttd_queue_setData(const UI8_T method, const UI8_T t_idx, const UI8_T f_idx, const UI16_T e_idx, const void *ptr_data, const UI16_T size);
 MW_ERROR_NO_T mqttd_queue_getData(const UI8_T in_t_idx, const UI8_T in_f_idx, const UI16_T in_e_idx, DB_MSG_T **pptr_out_msg, UI16_T *ptr_out_size, void **pptr_out_data);
+MW_ERROR_NO_T mqttd_tmr_queue_setData(const UI8_T method, const UI8_T t_idx, const UI8_T f_idx, const UI16_T e_idx, const void *ptr_data, const UI16_T size);
+MW_ERROR_NO_T mqttd_tmr_queue_getData(const UI8_T in_t_idx, const UI8_T in_f_idx, const UI16_T in_e_idx, DB_MSG_T **pptr_out_msg, UI16_T *ptr_out_size, void **pptr_out_data);
 
 #endif  /*_MQTTD_QUEUE_H_*/
