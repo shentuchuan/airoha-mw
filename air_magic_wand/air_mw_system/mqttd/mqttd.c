@@ -53,6 +53,7 @@
 #include "lwip/apps/mqtt.h"
 #include "lwip/apps/mqtt_opts.h"
 #include "lwip/apps/mqtt_priv.h"
+#include "lwip/apps/http_client.h"
 #include "lwip/dns.h"
 #include "lwip/netif.h"
 #include "mbedtls/md5.h"
@@ -3618,8 +3619,6 @@ static MW_ERROR_NO_T _mqttd_port_native_vlan_set(VLAN_ENTRY_INFO_T *vlan_entry){
     DB_MSG_T *ptr_msg = NULL;
     u16_t vidx = 0; 
     u16_t i = 0; 
-    UI32_T vlan_bmp = 0; 
-    UI32_T tmp_bmp = 0;   
     UI16_T size = 0;
     UI16_T *ptr_pvid_tbl = NULL;
     
@@ -3657,11 +3656,8 @@ static MW_ERROR_NO_T _mqttd_port_native_vlan_set(VLAN_ENTRY_INFO_T *vlan_entry){
 //根据vlan 更新port vlan list
 static MW_ERROR_NO_T _mqttd_port_base_vlan_set(VLAN_ENTRY_INFO_T *vlan_entry){
     MW_ERROR_NO_T rc = MW_E_OK;
-    DB_VLAN_ENTRY_T *ptr_vlan_entry_tbl = NULL;
     DB_MSG_T *ptr_msg = NULL;
     u16_t vidx = 0; 
-    UI32_T vlan_bmp = 0; 
-    UI32_T tmp_bmp = 0;   
     UI16_T size = 0;
     u8_t i = 0;
     UI32_T *ptr_vlan_list_tbl = NULL;
@@ -3685,7 +3681,6 @@ static MW_ERROR_NO_T _mqttd_port_base_vlan_set(VLAN_ENTRY_INFO_T *vlan_entry){
     }
 
     //更新vlan bmp
-    vlan_bmp = 1<<(vidx-1);
     for(i = 0; i < PLAT_MAX_PORT_NUM; i++)
     {
         if(PLAT_CPU_PORT == i)
@@ -3862,11 +3857,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_hybrid_vlan_process(MQTTD_CTRL_T *m
     cJSON *vlan_setting_obj;
     int idx = 0;
     u8_t port_id = 0;
-    u8_t i = 0;
-    u8_t vidx = 0;
     /*db variable*/
-    DB_MSG_T *ptr_msg = NULL;
-    UI16_T size = 0;
     VLAN_ENTRY_INFO_T vlan_entry = {0};
     
     //获取消息中 端口的vlan 配置
@@ -3922,6 +3913,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_hybrid_vlan_process(MQTTD_CTRL_T *m
                 }
             }
         }
+        idx++;
     }
     return rc;
 }
@@ -3929,13 +3921,6 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_hybrid_vlan_process(MQTTD_CTRL_T *m
 static MW_ERROR_NO_T _mqttd_handle_setconfig_vlan_setting(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj)
 {
     MW_ERROR_NO_T rc = MW_E_OK;
-    DB_VLAN_ENTRY_T vlan_info;
-    DB_MSG_T *ptr_db_msg = NULL;
-    u16_t db_size = 0;
-    void *db_data = NULL;
-    u8_t type = 0;
-    cJSON *vlan_setting_obj;
-    int idx = 0;
 
     //设置vlan mode
     //rc =_mqttd_vlan_mode_set(VLAN_1Q_ENABLE);
@@ -4598,7 +4583,6 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_total_vlan_setting(MQTTD_CTRL_T *mq
     DB_MSG_T *ptr_vlan_msg = NULL;
     DB_MSG_T *ptr_vlan_list_msg = NULL;
     DB_MSG_T *ptr_pvid_msg = NULL;
-    u16_t pvid = 0;
     u16_t size = 0;
     u8_t port_id = 0, j = 0;
     u8_t port_vlan_type = MQTTD_PORT_VLAN_NONE;
@@ -4654,7 +4638,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_total_vlan_setting(MQTTD_CTRL_T *mq
         }
 
         osapi_memset(port_id_str, 0, sizeof(port_id_str));
-        osapi_sprintf(port_id_str, sizeof(port_id_str), "port%d", port_id);
+        osapi_sprintf(port_id_str, "port%d", port_id);
         port_vlan_type = MQTTD_PORT_VLAN_NONE;
         if(VLAN_DEFAULT_VID != ptr_pvid_tbl[port_id]){
             port_vlan_type = MQTTD_PORT_VLAN_ACCESS;
@@ -5367,6 +5351,15 @@ static MW_ERROR_NO_T  _mqttd_handle_reboot(MQTTD_CTRL_T *mqttdctl,  cJSON *msgid
     return rc;
 }
 
+err_t _mqttd_test_recv(void *arg, struct altcp_pcb *conn, struct pbuf *p, err_t err){
+    mqttd_debug("-------------------------------------------------\n");
+    mqttd_debug("-------------------------------------------------\n");
+    mqttd_debug("-------------------------------------------------\n");
+    mqttd_debug("-------------------------------------------------\n");
+    mqttd_debug("-------------------------------------------------\n");
+    return MW_E_OK;
+}
+
 static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_obj)
 {
     int rc = MW_E_OK;
@@ -5430,6 +5423,18 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
             mqttd_debug("Method: %d\n", method->valueint);
         }
     }
+
+    ip_addr_t server_addr = {0};
+    u32_t addr = inet_addr("192.168.0.10");
+    osapi_memcpy(&server_addr, &addr, sizeof(server_addr));
+
+    u16_t port = 8080;
+    char *uri = "http://192.168.0.10:8080/airRTOSSystem.img"; 
+    httpc_connection_t settings = {0};
+    altcp_recv_fn recv_fn = _mqttd_test_recv;
+    void *callback_arg = NULL;
+    httpc_state_t *connection = NULL;
+    httpc_get_file(&server_addr, port, uri, &settings, recv_fn, callback_arg, &connection);
 
     //create rx json
     // 创建一个新的 JSON 对象
