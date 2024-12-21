@@ -1671,6 +1671,256 @@ static MW_ERROR_NO_T _mqttd_publish_sysinfo(MQTTD_CTRL_T *ptr_mqttd,  const DB_R
 	return rc;
 }
 
+static MW_ERROR_NO_T _mqttd_publish_port_vlan_setting(MQTTD_CTRL_T *ptr_mqttd,  const DB_REQUEST_TYPE_T *req, const void *ptr_data)
+{
+    MW_ERROR_NO_T rc = MW_E_OK;
+	VLAN_ENTRY_INFO_T *vlan_entry = NULL;
+    UI32_T *ptr_vlan_list_tbl = NULL;
+    u16_t vlan1_id[MAX_VLAN_ENTRY_NUM] = {0};
+    u16_t vlan2_id[MAX_VLAN_ENTRY_NUM] = {0};
+    u8_t vlan1_cnt = 0;
+    u8_t vlan2_cnt = 0;
+    UI16_T *ptr_pvid_tbl= NULL;
+    DB_MSG_T *ptr_vlan_msg = NULL;
+    DB_MSG_T *ptr_vlan_entry_msg = NULL;
+    DB_MSG_T *ptr_pvid_msg = NULL;
+    u16_t pvid = 0;
+    u16_t size = 0;
+    u8_t port_id = 0, j = 0;
+    u8_t port_vlan_type = MQTTD_PORT_VLAN_NONE;
+    char port_id_str[8] = {0};
+    u8_t port_start = 0;
+    u8_t port_end = PLAT_MAX_PORT_NUM;
+    if(0 != req->e_idx){
+        //上报指定端口的vlan
+        port_start = req->e_idx;
+        port_end = req->e_idx + 1;
+    }
+
+    osapi_printf("publish port vlan: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
+
+    /* Get DB PORT_VLAN_LIST */
+    rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_VLAN_LIST, DB_ALL_ENTRIES, &ptr_vlan_entry_msg, &size, (void **)&ptr_vlan_list_tbl);
+    if(MW_E_OK != rc)
+    {
+        mqttd_debug("get port vlan list failed(%d)\n", rc);
+        goto GET_MSG_FREE;
+    }
+
+    /* Get DB port native vlan */
+    rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_PVID, DB_ALL_ENTRIES, &ptr_pvid_msg, &size, (void **)&ptr_pvid_tbl);
+    if(MW_E_OK != rc)
+    {
+        mqttd_debug("get port native vlan failed(%d)\n", rc);
+        goto GET_MSG_FREE;
+    }
+
+    // 创建 vlan_member 数组
+    cJSON *vlan_setting = cJSON_CreateArray();
+    if (vlan_setting == NULL)
+    {
+        mqttd_debug("Failed to create JSON array for vlan setting.");
+        rc = MW_E_NO_MEMORY;
+        goto GET_MSG_FREE;
+    }
+    cJSON *member = NULL;
+
+    //获取端口的vlan信息
+    for(port_id = 0; port_id < PLAT_MAX_PORT_NUM; port_id++)
+    {
+        if(PLAT_CPU_PORT == port_id)
+        {
+            continue;
+        }
+
+        mqttd_debug("port_id:%d %d 0x%x\n", port_id, ptr_pvid_tbl[port_id], ptr_vlan_list_tbl[port_id]);
+
+        //端口不存在vlan配置则查找下一个
+        if((VLAN_DEFAULT_VID == ptr_pvid_tbl[port_id])
+        && (0 == ptr_vlan_list_tbl[port_id]))
+        {
+            continue;
+        }
+
+        osapi_memset(port_id_str, 0, sizeof(port_id_str));
+        osapi_sprintf(port_id_str, "port%d", port_id);
+        port_vlan_type = MQTTD_PORT_VLAN_NONE;
+        if(VLAN_DEFAULT_VID != ptr_pvid_tbl[port_id]){
+            port_vlan_type = MQTTD_PORT_VLAN_ACCESS;
+        }
+
+        if(0 != ptr_vlan_list_tbl[port_id]){
+            vlan1_cnt = 0;
+            vlan2_cnt = 0;
+            BITMAP_VLAN_FOREACH(ptr_vlan_list_tbl[port_id], j){
+                /* Get DB VLAN_ENTRY */
+                rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, j+1, &ptr_vlan_entry_msg, &size, (void **)&vlan_entry);
+                if(MW_E_OK != rc)
+                {
+                    mqttd_debug("get vlan cfg failed(%d)\n", rc);
+                    goto GET_MSG_FREE;
+                }
+                mqttd_debug("vlan_id:%d %d 0x%x 0x%x 0x%x\n", j+1, vlan_entry->vlan_id, vlan_entry->port_member, vlan_entry->tagged_member, vlan_entry->untagged_member);
+
+                if(vlan_entry->vlan_id != 0) {
+                    if(vlan_entry->port_member & (1 << port_id)){
+                        vlan1_id[vlan1_cnt] = vlan_entry->vlan_id;
+                        vlan1_cnt++;
+                        MW_FREE(ptr_vlan_entry_msg);
+                        ptr_vlan_entry_msg = NULL;
+                        continue;
+                    }
+                    if(vlan_entry->tagged_member & (1 << port_id)){
+                        vlan1_id[vlan1_cnt] = vlan_entry->vlan_id;
+                        vlan1_cnt++;                        
+                    }
+                    if(vlan_entry->untagged_member & (1 << port_id))
+                    {
+                        vlan2_id[vlan2_cnt] = vlan_entry->vlan_id;
+                        vlan2_cnt++;
+                    }
+                }
+                MW_FREE(ptr_vlan_entry_msg);
+                ptr_vlan_entry_msg = NULL;
+            } 
+            if(vlan2_cnt > 0){
+                port_vlan_type = MQTTD_PORT_VLAN_HYBRID;
+            }else{
+                port_vlan_type = MQTTD_PORT_VLAN_TRUNK;
+            }           
+        }
+
+        // 创建第一个对象并添加到数组
+        member = cJSON_CreateObject();
+        if (member == NULL)
+        {
+            mqttd_debug("Failed to create JSON object for vlan member.");
+            rc = MW_E_NO_MEMORY;
+            goto GET_MSG_FREE;
+        }
+
+        cJSON_AddNumberToObject(member, "id", port_id);        
+        cJSON_AddStringToObject(member, "n", port_id_str);
+        cJSON_AddNumberToObject(member, "ty", port_vlan_type);
+        if(port_vlan_type == MQTTD_PORT_VLAN_ACCESS){
+            cJSON_AddNumberToObject(member, "ac", ptr_pvid_tbl[port_id]);
+            if(false == cJSON_AddItemToArray(vlan_setting, member)) {
+                mqttd_debug("Failed to add vlan ac member to array.");
+                rc = MW_E_NO_MEMORY;
+                goto GET_MSG_FREE;
+            }
+        }
+        else if(port_vlan_type == MQTTD_PORT_VLAN_TRUNK){
+            cJSON_AddNumberToObject(member, "nv", ptr_pvid_tbl[port_id]);
+            cJSON * pv = cJSON_CreateArray();
+            if(NULL == pv){
+                mqttd_debug("Failed to create JSON array for vlan pv.");
+                rc = MW_E_NO_MEMORY;
+                goto GET_MSG_FREE;
+            }
+
+            for(j = 0; j < vlan1_cnt; j++)
+            {                
+                cJSON_AddItemToArray(pv, cJSON_CreateNumber(vlan1_id[j]));
+            }
+
+            if(false == cJSON_AddItemToObject(member, "pv", pv)) {
+                mqttd_debug("Failed to add vlan pv member to array.");
+                rc = MW_E_NO_MEMORY;
+                cJSON_Delete(pv);
+                goto GET_MSG_FREE;
+            }
+
+            if(false == cJSON_AddItemToArray(vlan_setting, member)) {
+                mqttd_debug("Failed to add vlan tk member to array.");
+                rc = MW_E_NO_MEMORY;
+                goto GET_MSG_FREE;
+            }
+        }
+        else{
+            cJSON * tv= cJSON_CreateArray();
+            if(NULL == tv){
+                mqttd_debug("Failed to create JSON array for vlan tv.");
+                rc = MW_E_NO_MEMORY;
+                goto GET_MSG_FREE;
+            }
+
+            for(j = 0; j < vlan1_cnt; j++)
+            {
+                cJSON_AddItemToArray(tv, cJSON_CreateNumber(vlan1_id[j]));
+            }
+
+            if(false == cJSON_AddItemToObject(member, "tv", tv)) {
+                mqttd_debug("Failed to add vlan tv member to array.");
+                rc = MW_E_NO_MEMORY;
+                cJSON_Delete(tv);
+                goto GET_MSG_FREE;
+            }
+
+            cJSON * utv= cJSON_CreateArray();
+            if(NULL == utv){
+                mqttd_debug("Failed to create JSON array for vlan utv.");
+                rc = MW_E_NO_MEMORY;
+                goto GET_MSG_FREE;
+            }
+
+            for(j = 0; j < vlan2_cnt; j++)
+            {
+                cJSON_AddItemToArray(utv, cJSON_CreateNumber(vlan2_id[j]));
+            }
+
+            if(false == cJSON_AddItemToObject(member, "utv", utv)) {
+                mqttd_debug("Failed to add vlan utv member to array.");
+                rc = MW_E_NO_MEMORY;
+                cJSON_Delete(utv);
+                goto GET_MSG_FREE;
+            }
+
+            if(false == cJSON_AddItemToArray(vlan_setting, member)) {
+                mqttd_debug("Failed to add vlan hy member to array.");
+                rc = MW_E_NO_MEMORY;
+                goto GET_MSG_FREE;
+            }   
+        }
+        member = NULL;        
+    }
+
+
+    char topic[80];
+    osapi_snprintf(topic, sizeof(topic), "%s/event", ptr_mqttd->topic_prefix);
+    cJSON *root = cJSON_CreateObject();
+    cJSON *data = cJSON_CreateObject();
+
+    cJSON_AddStringToObject(root, "type", "config");
+    cJSON_AddItemToObject(root, "data", data);
+    cJSON_AddItemToObject(data, "vlan_setting", vlan_setting);
+    vlan_setting = NULL;
+
+    mqtt_send_json_and_free(ptr_mqttd, topic, root);
+
+GET_MSG_FREE:
+    if(ptr_vlan_msg){
+        MW_FREE(ptr_vlan_msg);
+        ptr_vlan_msg = NULL;
+    }
+    if(ptr_vlan_entry_msg){
+        MW_FREE(ptr_vlan_entry_msg);
+        ptr_vlan_entry_msg = NULL;
+    }
+    if(ptr_pvid_msg){
+        MW_FREE(ptr_pvid_msg);
+        ptr_pvid_msg = NULL;
+    }
+    if(vlan_setting){
+        cJSON_Delete(vlan_setting);
+        vlan_setting = NULL;
+    }
+    if(member){
+        cJSON_Delete(member);
+        member = NULL;
+    }
+    return rc;
+}
 
 /*publish sysinfo to mqtt cloud server with event topic*/
 static MW_ERROR_NO_T _mqttd_publish_portcfg(MQTTD_CTRL_T *ptr_mqttd,  const DB_REQUEST_TYPE_T *req, const void *ptr_data)
@@ -1682,6 +1932,10 @@ static MW_ERROR_NO_T _mqttd_publish_portcfg(MQTTD_CTRL_T *ptr_mqttd,  const DB_R
     DB_PORT_CFG_INFO_T *ptr_port_cfg_info = NULL;
 	osapi_printf("publish portcfg: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
  
+    if(PORT_VLAN_LIST == req->f_idx){
+        return _mqttd_publish_port_vlan_setting(ptr_mqttd, req, ptr_data);
+    }
+
 	if(req->f_idx != PORT_ADMIN_STATUS && req->f_idx != DB_ALL_FIELDS)
 		return MW_E_OK;
 	
