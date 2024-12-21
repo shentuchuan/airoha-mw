@@ -5663,20 +5663,24 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
         }
     }
 
-    ip_addr_t server_addr = {0};
-    u32_t addr = inet_addr("192.168.0.10");
+/*     ip_addr_t server_addr = {0};
+    u32_t addr = 0x0a00a8c0;//0xc0a8000a;//ipaddr_addr("192.168.0.10");
     osapi_memcpy(&server_addr, &addr, sizeof(server_addr));
+    mqttd_debug("Server address: %s\n", ipaddr_ntoa(&server_addr));
 
     u16_t port = 8080;
     char *uri = "http://192.168.0.10:8080/airRTOSSystem.img"; 
     httpc_connection_t settings = {0};
+    memset(&settings, 0, sizeof(settings));
+    settings.altcp_allocator = NULL;
+
     altcp_recv_fn recv_fn = _mqttd_test_recv;
     void *callback_arg = NULL;
     httpc_state_t *connection = NULL;
-    httpc_get_file(&server_addr, port, uri, &settings, recv_fn, callback_arg, &connection);
-
+    rc = httpc_get_file(&server_addr, port, uri, &settings, recv_fn, callback_arg, &connection);
+    mqttd_debug("httpc_get_file return %d", rc);
+ */
     //create rx json
-    // 创建一个新的 JSON 对象
     root = cJSON_CreateObject();
 
     // 添加键值对到 JSON 对象

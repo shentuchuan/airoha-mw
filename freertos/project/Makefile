@@ -312,7 +312,8 @@ APP_TELNETD = \
 	$(APP_TELNETD_DIR)/telnetd.c
 
 APP_MQTT += \
-	$(APP_LWIP_APPS_MQTT_DIR)/mqtt.c
+	$(APP_LWIP_APPS_MQTT_DIR)/mqtt.c\
+	$(APP_LWIP_APPS_HTTP_DIR)/http_client.c
 
 APP_SRCS = \
 	$(APP_LWIP_API_DIR)/api_lib.c \
