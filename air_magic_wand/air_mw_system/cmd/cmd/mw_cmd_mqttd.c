@@ -46,11 +46,21 @@
 #include "lwip/apps/http_client.h"
 #include "lwip/tcp.h"
 #include "lwip/pbuf.h"
+#include "lwip/altcp.h"
+#include "lwip/altcp.h"
+#include "lwip/ip_addr.h"
+#include "lwip/altcp_tcp.h"
 
 #ifdef AIR_SUPPORT_MQTTD
 #include "mqttd.h"
 #include "inet_utils.h"
 #include "sys_mgmt.h"
+
+#define sys_httpc_debug(fmt, ...)                                                          \
+    do                                                                                     \
+    {                                                                                      \
+        osapi_printf("<%s:%d>(%s)" fmt "\n", __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+    } while (0)
 
 /* NAMING CONSTANT DECLARATIONS
  */
@@ -385,7 +395,7 @@ static err_t HTTPClientCallback(void *arg, struct tcp_pcb *pcb, struct pbuf *tcp
 static void HTTPClientConnectError(void *arg, err_t err)
 {
     /* 重新启动连接 */
-    printf("http client connect error\n");
+    sys_httpc_debug("http client connect error %d!\n", 1);
 }
 
 /* HTTP客户端连接到服务器回调函数 */
@@ -394,6 +404,8 @@ static err_t HTTPClientConnected(void *arg, struct tcp_pcb *pcb, err_t err)
     char clientString[] = "GET https://www.cnblogs.com/foxclever/ HTTP/1.1\r\n"
 
                           "Host:www.cnblogs.com:80\r\n\r\n";
+
+    sys_httpc_debug("http client connected %s\n", clientString);
 
     /* 配置接收回调函数 */
     tcp_recv(pcb, HTTPClientCallback);
@@ -453,6 +465,127 @@ void _mqtt_http_test_get_file()
     mqttd_debug("httpc_get_file return %d", rc);
 }
 
+void _mqtt_http_test_tcp_file()
+{
+    struct altcp_pcb *conn = NULL;
+    int rc;
+    err_t err;
+    ip_addr_t server_addr = {0};
+    u32_t addr = 0x6400a8c0; // 0xc0a8000a;//ipaddr_addr("192.168.0.10");
+    osapi_memcpy(&server_addr, &addr, sizeof(server_addr));
+    sys_httpc_debug("Server address: %s\n", ipaddr_ntoa(&server_addr));
+
+    conn = altcp_tcp_new_ip_type(IP_GET_TYPE(&server_addr));
+    if (NULL == conn)
+    {
+        sys_httpc_debug("altcp_tcp_new_ip_type error %d!\n", rc);
+        return;
+    }
+
+    altcp_nagle_disable(conn);
+
+    // altcp_arg(conn, client);
+    /* Any local address, pick random local port number */
+    err = altcp_bind(conn, IP_ADDR_ANY, 0);
+    if (err != ERR_OK)
+    {
+        sys_httpc_debug("mqtt_http_client_connect: Error binding to local ip/port, %d\n", err);
+        goto tcp_fail;
+    }
+
+    /* Connect to server */
+    err = altcp_connect(conn, &server_addr, 8080, HTTPClientConnected);
+    if (err != ERR_OK)
+    {
+        sys_httpc_debug("mqtt_client_connect: Error connecting to remote ip/port, %d failed!\n", err);
+        goto tcp_fail;
+    }
+
+    /* Set error callback */
+    altcp_err(conn, HTTPClientConnectError);
+
+    sys_httpc_debug("mqtt_client_connect: Connected to server %d.\n", err);
+
+    err = conn->connected(conn->arg, conn, ERR_OK);
+    if(ERR_OK != err){
+        sys_httpc_debug("mqtt_client_connect: Error connecting to remote ip/port, %d failed!\n", err);
+        goto tcp_fail;
+    }
+    
+    return;
+
+tcp_fail:
+    if (conn)
+    {
+        altcp_abort(conn);
+        conn = NULL;
+    }
+    return;
+}
+
+#define SYS_HTTPC_TASK_NAME "httpc_task"
+threadhandle_t sys_httpc_task_handle;
+u32_t g_http_task_type = 0;
+
+static void sys_httpc_task(void *ptr_pvParameters)
+{
+    sys_httpc_debug("start http test type %d\n", g_http_task_type);
+    switch (g_http_task_type)
+    {
+    case 1:
+        _mqtt_http_test_get_file();
+        break;
+
+    case 2:
+    {
+        // 192.168.0.10
+        u32_t ip_client = atoi("10");
+        u32_t addr = 0x0000a8c0 | (ip_client << 24);
+        sys_httpc_debug("Client address: %s\n", ipaddr_ntoa(&addr));
+        _mqtt_http_test_tcp_send(addr);
+    }
+    break;
+
+    case 3:
+    {
+        // 192.168.0.100
+        u32_t ip_client = atoi("100");
+        u32_t addr = 0x0000a8c0 | (ip_client << 24);
+        sys_httpc_debug("Client address: %s\n", ipaddr_ntoa(&addr));
+        _mqtt_http_test_tcp_send(addr);
+    }
+    break;
+
+    case 4:
+    {
+        _mqtt_http_test_tcp_file();
+    }
+    break;
+
+    default:
+        break;
+    }
+
+    // 释放资源
+    osapi_threadDelete(sys_httpc_task_handle);
+}
+
+void _mqtt_httpc_thread_create()
+{
+    osapi_memset(&sys_httpc_task_handle, 0, sizeof(sys_httpc_task_handle));
+    if (osapi_threadCreate(SYS_HTTPC_TASK_NAME,
+                           configMINIMAL_STACK_SIZE * 2,
+                           MW_TASK_PRIORITY_SYSMGMT,
+                           sys_httpc_task,
+                           NULL,
+                           &sys_httpc_task_handle) != MW_E_OK)
+    {
+        osapi_printf("create httpc task failed!\n");
+        osapi_threadDelete(sys_httpc_task_handle);
+        return MW_E_NO_MEMORY;
+    }
+    return;
+}
 static MW_ERROR_NO_T
 _mqttd_http_test_json(
     const C8_T *tokens[],
@@ -460,36 +593,12 @@ _mqttd_http_test_json(
 {
     MW_ERROR_NO_T ret = MW_E_OK;
 
-    osapi_printf("try http test\n");
+    sys_httpc_debug("try http test\n");
 
     /* Parser tokens */
-    if (MW_E_OK == mw_cmd_checkString(tokens[token_idx], "1"))
-    {
-        token_idx++;
-        MW_CMD_CHECK_LAST_TOKEN(tokens[token_idx]);
-        _mqtt_http_test_get_file();
-    }
-    else if (MW_E_OK == mw_cmd_checkString(tokens[token_idx], "2"))
-    {
-        token_idx++;
-        MW_CMD_CHECK_LAST_TOKEN(tokens[token_idx]);
-        // 192.168.0.10
-        _mqtt_http_test_tcp_send(0x0a00a8c0);
-    }
-    else if (MW_E_OK == mw_cmd_checkString(tokens[token_idx], "3"))
-    {
-        // 192.168.0.100
-        _mqtt_http_test_tcp_send(0x6400a8c0);
-    }
-    else
-    {
-        // 192.168.0.100
-        u32_t ip_client = atoi(tokens[token_idx]);
-        u32_t addr = 0x0000a8c0 | (ip_client << 24);
-        mqttd_debug("Client address: %s\n", ipaddr_ntoa(&addr));
-        _mqtt_http_test_tcp_send(addr);
-    }
-
+    g_http_task_type = atoi(tokens[token_idx]);
+    sys_httpc_debug("try http test type %d\n", g_http_task_type);
+    _mqtt_httpc_thread_create();
     return ret;
 }
 
