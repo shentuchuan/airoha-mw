@@ -319,8 +319,14 @@ APP_TELNETD = \
 	$(APP_TELNETD_DIR)/telnetd.c
 
 APP_MQTT += \
-	$(APP_LWIP_APPS_MQTT_DIR)/mqtt.c\
-	$(APP_LWIP_APPS_HTTP_DIR)/http_client.c
+	$(APP_LWIP_APPS_MQTT_DIR)/mqtt.c
+
+APP_HTTPC +=\
+	$(APP_LWIP_APPS_HTTP_DIR)/http_client.c\
+	$(APP_COMMON_DIR)/platform/posix/transport/src/sockets_posix.c \
+	$(APP_COMMON_DIR)/platform/posix/transport/src/plaintext_posix.c\
+	$(APP_HTTP_CLIENT_PARSER_DIR)/http_parser.c \
+	$(APP_HTTP_CLIENT_CORE_DIR)/core_http_client.c
 
 APP_SRCS = \
 	$(APP_LWIP_API_DIR)/api_lib.c \
@@ -372,6 +378,7 @@ APP_SRCS = \
 
 ifeq ($(AIR_MW_SUPPORT),ENABLED)
 APP_SRCS += $(APP_HTTPD)
+APP_SRCS += $(APP_HTTPC)
 APP_SRCS += $(APP_SNMP)
 APP_SRCS +=	$(APP_LWIP_APPS_DIR)/ping/ping.c
 APP_SRCS += $(APP_MQTT)
