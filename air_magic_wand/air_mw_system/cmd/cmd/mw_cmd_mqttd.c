@@ -193,7 +193,7 @@ _mqttd_cmd_coding(
     {
         return MW_E_BAD_PARAMETER;
     }
-
+	mqttd_coding_enable(enable);
     return ret;
 }
 
@@ -231,7 +231,7 @@ _mqttd_cmd_json(
     {
         return MW_E_BAD_PARAMETER;
     }
-
+	mqttd_json_dump_enable(enable);
     return ret;
 }
 

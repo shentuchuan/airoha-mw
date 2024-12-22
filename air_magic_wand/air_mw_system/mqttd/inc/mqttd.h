@@ -229,6 +229,8 @@ void *mqtt_malloc(UI32_T size);
 void mqtt_free(void *ptr);
 void *mqtt_realloc(void *ptr, UI32_T size);
 
+void mqttd_coding_enable(UI8_T en);
+void mqttd_json_dump_enable(UI8_T en);
 
 
 #endif  /*_MQTTD_H_*/
