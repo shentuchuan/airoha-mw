@@ -106,13 +106,16 @@
 #define MQTTD_MSG_VER                "2.0"
 #define MQTTD_IPV4_STR_SIZE 		(16)
 
-#define MQTTD_RC4_ENABLE 			(0)
+#ifdef  BUILD_USE_FOR_IKUAI
+#define MQTTD_RC4_ENABLE 			(1)
+const ip_addr_t mqttd_server_ip = IPADDR4_INIT_BYTES(47, 237, 80, 17);  // for ikuai domain
 
-
+#else
 /* MQTTD Server Login
 */
-//const ip_addr_t mqttd_server_ip = IPADDR4_INIT_BYTES(47, 237, 80, 17);  // for ikuai domain
+#define MQTTD_RC4_ENABLE 			(0)
 const ip_addr_t mqttd_server_ip = IPADDR4_INIT_BYTES(192, 168, 0, 100);  // for ikuai domain
+#endif
 
 #if LWIP_DNS
 const C8_T cloud_hostname[] = "swmgr.hruicloud.com";
@@ -1726,7 +1729,7 @@ static MW_ERROR_NO_T _mqttd_publish_port_vlan_setting(MQTTD_CTRL_T *ptr_mqttd,  
     cJSON *member = NULL;
 
     //获取端口的vlan信息
-    for(port_id = 0; port_id < PLAT_MAX_PORT_NUM; port_id++)
+    for(port_id = port_start; port_id < port_end; port_id++)
     {
         if(PLAT_CPU_PORT == port_id)
         {

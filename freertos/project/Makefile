@@ -15,6 +15,13 @@ endif
 ################################################
 
 PROG ?= airRTOSSystem
+#增加ikuai编译
+ifeq ($(version), ikuai)
+	export EXTRA_CFLAGS += -DBUILD_USE_FOR_IKUAI
+	CFLAGS += -DBUILD_USE_FOR_IKUAI
+	PROG = airRTOSSystem-ikuai
+endif
+
 include $(shell pwd)/toolchain.mk
 
 
