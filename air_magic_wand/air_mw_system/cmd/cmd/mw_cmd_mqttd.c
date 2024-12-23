@@ -51,7 +51,7 @@
 #include "lwip/altcp_tcp.h"
 
 /* POSIX includes. */
-//#include <unistd.h>
+// #include <unistd.h>
 
 /* Include Demo Config as the first non-system header. */
 #include "demo_config.h"
@@ -498,7 +498,7 @@ void _mqtt_http_test_get_file()
  * @brief Request body to send for PUT and POST requests in this demo.
  */
 #define REQUEST_BODY "Hello, world!"
-#define HTTP_PORT   8080
+#define HTTP_PORT 8080
 #define SERVER_HOST "192.168.0.100"
 
 /* Check that hostname of the server is defined. */
@@ -627,7 +627,7 @@ typedef struct httpMethodStrings
  * response after the HTTP request is sent out. However, the user can also
  * decide to use separate buffers for storing the HTTP request and response.
  */
-static uint8_t userBuffer[USER_BUFFER_LENGTH];
+static uint8_t resp_userBuffer[USER_BUFFER_LENGTH];
 
 /*-----------------------------------------------------------*/
 
@@ -684,10 +684,9 @@ static int32_t connectToServer(NetworkContext_t *pNetworkContext)
     /* Establish a TCP connection with the HTTP server. This example connects
      * to the HTTP server as specified in SERVER_HOST and HTTP_PORT
      * in demo_config.h. */
-    sys_httpc_debug("Establishing a TCP connection with %.*s:%d.",
-             (int32_t)SERVER_HOST_LENGTH,
-             SERVER_HOST,
-             HTTP_PORT);
+    sys_httpc_debug("Try Establishing a TCP connection with %s:%d.",
+                    SERVER_HOST,
+                    HTTP_PORT);
     socketStatus = Plaintext_Connect(pNetworkContext,
                                      &serverInfo,
                                      TRANSPORT_SEND_RECV_TIMEOUT_MS,
@@ -727,7 +726,8 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     /* Return value of all methods from the HTTP Client library API. */
     HTTPStatus_t httpStatus = HTTPSuccess;
 
-    if(pMethod == NULL || pPath == NULL) {
+    if (pMethod == NULL || pPath == NULL)
+    {
         return EXIT_FAILURE;
     }
 
@@ -749,8 +749,10 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     requestInfo.reqFlags = HTTP_REQUEST_KEEP_ALIVE_FLAG;
 
     /* Set the buffer used for storing request headers. */
-    requestHeaders.pBuffer = userBuffer;
+    requestHeaders.pBuffer = resp_userBuffer;
     requestHeaders.bufferLen = USER_BUFFER_LENGTH;
+    response.pBuffer = resp_userBuffer;
+    response.bufferLen = USER_BUFFER_LENGTH;
 
     httpStatus = HTTPClient_InitializeRequestHeaders(&requestHeaders,
                                                      &requestInfo);
@@ -759,18 +761,17 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     {
         /* Initialize the response object. The same buffer used for storing
          * request headers is reused here. */
-        response.pBuffer = userBuffer;
+        response.pBuffer = resp_userBuffer;
         response.bufferLen = USER_BUFFER_LENGTH;
 
-        LogInfo(("Sending HTTP %.*s request to %.*s%.*s...",
-                 (int32_t)requestInfo.methodLen, requestInfo.pMethod,
-                 (int32_t)SERVER_HOST_LENGTH, SERVER_HOST,
-                 (int32_t)requestInfo.pathLen, requestInfo.pPath));
-        LogDebug(("Request Headers:\n%.*s\n"
-                  "Request Body:\n%.*s\n",
-                  (int32_t)requestHeaders.headersLen,
-                  (char *)requestHeaders.pBuffer,
-                  (int32_t)REQUEST_BODY_LENGTH, REQUEST_BODY));
+        sys_httpc_debug("Sending HTTP %s request to %s %s...",
+                        requestInfo.pMethod,
+                        SERVER_HOST,
+                        requestInfo.pPath);
+        sys_httpc_debug("Request Headers:\n%s\n"
+                        "Request Body:\n%s\n",
+                        (char *)requestHeaders.pBuffer,
+                        REQUEST_BODY);
 
         if (0 == strcmp(HTTP_METHOD_GET, pMethod))
         {
@@ -792,29 +793,29 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     }
     else
     {
-        LogError(("Failed to initialize HTTP request headers: Error=%s.",
-                  HTTPClient_strerror(httpStatus)));
+        sys_httpc_debug("Failed to initialize HTTP request headers: Error=%s.",
+                        HTTPClient_strerror(httpStatus));
     }
 
     if (httpStatus == HTTPSuccess)
     {
-        printf("Received HTTP response from %.*s%.*s...\n"
-               "Response Headers:\n%.*s\n"
-               "Response Status:\n%u\n"
-               "Response Body:\n%.*s\n",
-               (int32_t)SERVER_HOST_LENGTH, SERVER_HOST,
-               (int32_t)requestInfo.pathLen, requestInfo.pPath,
-               (int32_t)response.headersLen, response.pHeaders,
-               response.statusCode,
-               (int32_t)response.bodyLen, response.pBody);
+        /*         sys_httpc_debug("Received HTTP response from %s %s ...\n"
+                                "Response Headers:\n%s\n"
+                                "Response Status:\n%u\n"
+                                "Response Body:\n%s\n",
+                                SERVER_HOST, requestInfo.pPath, response.pHeaders, response.statusCode, response.pBody);
+         */
+        // osapi_printf("Recevied HTTP bufferLen [%d] [%s] ...\n", requestHeaders.bufferLen, requestHeaders.pBuffer);
+        // osapi_printf("Recevied HTTP header [%d] [%s] ...\n", requestHeaders.headersLen, requestHeaders.pBuffer + requestHeaders.headersLen);
+        // sys_httpc_debug("Recevied HTTP response [%d] [%s] ...\n", response.bodyLen, response.pBody);
     }
     else
     {
-        LogError(("Failed to send HTTP %.*s request to %.*s%.*s: Error=%s.",
-                  (int32_t)requestInfo.methodLen, requestInfo.pMethod,
-                  (int32_t)SERVER_HOST_LENGTH, SERVER_HOST,
-                  (int32_t)requestInfo.pathLen, requestInfo.pPath,
-                  HTTPClient_strerror(httpStatus)));
+        sys_httpc_debug("Failed to send HTTP %s request to %s%s: Error=%s.",
+                        requestInfo.pMethod,
+                        SERVER_HOST,
+                        requestInfo.pPath,
+                        HTTPClient_strerror(httpStatus));
     }
 
     if (httpStatus != HTTPSuccess)
@@ -892,9 +893,9 @@ int http_client_main(int argc,
             {
                 /* Log error to indicate connection failure after all
                  * reconnect attempts are over. */
-                LogError(("Failed to connect to HTTP server %.*s.",
-                          (int32_t)SERVER_HOST_LENGTH,
-                          SERVER_HOST));
+                sys_httpc_debug("Failed to connect to HTTP server %.*s.",
+                                (int32_t)SERVER_HOST_LENGTH,
+                                SERVER_HOST);
             }
         }
 
