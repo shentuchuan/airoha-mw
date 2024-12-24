@@ -60,6 +60,7 @@
 
 #ifdef AIR_SUPPORT_MQTTD
 #include "mqttd.h"
+#include "mqttd_http.h"
 #include "inet_utils.h"
 #include "sys_mgmt.h"
 
@@ -82,7 +83,7 @@
 /**
  * @brief The length in bytes of the user buffer.
  */
-#define USER_BUFFER_LENGTH (2048)
+#define USER_BUFFER_LENGTH (1024)
 
 /**
  * @brief Request body to send for PUT and POST requests in this demo.
@@ -229,56 +230,18 @@ struct NetworkContext
 
 /*-----------------------------------------------------------*/
 
-/**
- * @brief Connect to HTTP server with reconnection retries.
- *
- * @param[out] pNetworkContext The output parameter to return the created network context.
- *
- * @return EXIT_FAILURE on failure; EXIT_SUCCESS on successful connection.
- */
-static int32_t connectToServer(NetworkContext_t *pNetworkContext);
-
-/**
- * @brief Send an HTTP request based on a specified method and path, then
- * print the response received from the server.
- *
- * @param[in] pTransportInterface The transport interface for making network calls.
- * @param[in] pMethod The HTTP request method.
- * @param[in] methodLen The length of the HTTP request method.
- * @param[in] pPath The Request-URI to the objects of interest.
- * @param[in] pathLen The length of the Request-URI.
- *
- * @return EXIT_FAILURE on failure; EXIT_SUCCESS on success.
- */
-static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
-                               const char *pMethod,
-                               size_t methodLen,
-                               const char *pPath,
-                               size_t pathLen);
-
-/*-----------------------------------------------------------*/
-
-static int32_t connectToServer(NetworkContext_t *pNetworkContext)
+static int32_t connectToServer(NetworkContext_t *pNetworkContext, ServerInfo_t *serverInfo)
 {
     int32_t returnStatus = EXIT_FAILURE;
     /* Status returned by plaintext sockets transport implementation. */
     SocketStatus_t socketStatus;
-    /* Information about the server to send the HTTP requests. */
-    ServerInfo_t serverInfo;
-
-    /* Initialize server information. */
-    serverInfo.pHostName = SERVER_HOST;
-    serverInfo.hostNameLength = SERVER_HOST_LENGTH;
-    serverInfo.port = 8080;
 
     /* Establish a TCP connection with the HTTP server. This example connects
      * to the HTTP server as specified in SERVER_HOST and HTTP_PORT
      * in demo_config.h. */
-    sys_httpc_debug("Try Establishing a TCP connection with %s:%d.",
-                    SERVER_HOST,
-                    HTTP_PORT);
+
     socketStatus = Plaintext_Connect(pNetworkContext,
-                                     &serverInfo,
+                                     serverInfo,
                                      TRANSPORT_SEND_RECV_TIMEOUT_MS,
                                      TRANSPORT_SEND_RECV_TIMEOUT_MS);
 
@@ -288,6 +251,7 @@ static int32_t connectToServer(NetworkContext_t *pNetworkContext)
     }
     else
     {
+        sys_httpc_debug("Try Establishing a TCP connection with %s:%d failed!", serverInfo->pHostName, serverInfo->port);
         returnStatus = EXIT_FAILURE;
     }
 
@@ -298,25 +262,23 @@ static int32_t connectToServer(NetworkContext_t *pNetworkContext)
 
 static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
                                const char *pMethod,
-                               size_t methodLen,
-                               const char *pPath,
-                               size_t pathLen)
+                               size_t methodLen, mqttd_http_t *mqttd_httpc)
 {
     /* Return value of this method. */
     int32_t returnStatus = EXIT_SUCCESS;
 
     /* Configurations of the initial request headers that are passed to
      * #HTTPClient_InitializeRequestHeaders. */
-    HTTPRequestInfo_t requestInfo;
+    HTTPRequestInfo_t requestInfo = {};
     /* Represents a response returned from an HTTP server. */
-    HTTPResponse_t response;
+    HTTPResponse_t response = {};
     /* Represents header data that will be sent in an HTTP request. */
-    HTTPRequestHeaders_t requestHeaders;
+    HTTPRequestHeaders_t requestHeaders = {};
 
     /* Return value of all methods from the HTTP Client library API. */
     HTTPStatus_t httpStatus = HTTPSuccess;
 
-    if (pMethod == NULL || pPath == NULL)
+    if (pMethod == NULL || mqttd_httpc->http_path == NULL)
     {
         return EXIT_FAILURE;
     }
@@ -327,12 +289,12 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     (void)memset(&requestHeaders, 0, sizeof(requestHeaders));
 
     /* Initialize the request object. */
-    requestInfo.pHost = SERVER_HOST;
-    requestInfo.hostLen = SERVER_HOST_LENGTH;
+    requestInfo.pHost = mqttd_httpc->host;
+    requestInfo.hostLen = mqttd_httpc->host_len;
     requestInfo.pMethod = pMethod;
     requestInfo.methodLen = methodLen;
-    requestInfo.pPath = pPath;
-    requestInfo.pathLen = pathLen;
+    requestInfo.pPath = mqttd_httpc->http_path;
+    requestInfo.pathLen = mqttd_httpc->http_path_len;
 
     /* Set "Connection" HTTP header to "keep-alive" so that multiple requests
      * can be sent over the same established TCP connection. */
@@ -341,8 +303,8 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     /* Set the buffer used for storing request headers. */
     requestHeaders.pBuffer = resp_userBuffer;
     requestHeaders.bufferLen = USER_BUFFER_LENGTH;
-    response.pBuffer = resp_userBuffer;
-    response.bufferLen = USER_BUFFER_LENGTH;
+    response.pBuffer = mqttd_httpc->response_buffer;
+    response.bufferLen = mqttd_httpc->response_buffer_len;
 
     httpStatus = HTTPClient_InitializeRequestHeaders(&requestHeaders,
                                                      &requestInfo);
@@ -397,7 +359,7 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
          */
         // osapi_printf("Recevied HTTP bufferLen [%d] [%s] ...\n", requestHeaders.bufferLen, requestHeaders.pBuffer);
         // osapi_printf("Recevied HTTP header [%d] [%s] ...\n", requestHeaders.headersLen, requestHeaders.pBuffer + requestHeaders.headersLen);
-        // sys_httpc_debug("Recevied HTTP response [%d] [%s] ...\n", response.bodyLen, response.pBody);
+        sys_httpc_debug("Recevied HTTP response [%d] [%s] ...\n", response.bodyLen, response.pBody);
     }
     else
     {
@@ -418,229 +380,80 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
 
 /*-----------------------------------------------------------*/
 
-/**
- * @brief Entry point of demo.
- *
- * This example resolves a domain, then establishes a TCP connection with an
- * HTTP server to demonstrate HTTP request/response communication without using
- * an encrypted channel (i.e. without TLS). After which, HTTP Client library API
- * is used to send a GET, HEAD, PUT, and POST request in that order. For each
- * request, the HTTP response from the server (or an error code) is logged.
- *
- * @note This example is single-threaded and uses statically allocated memory.
- *
- */
-int http_client_main(int argc,
-                     char **argv)
+int mqttd_http_update(mqttd_http_t *mqttd_httpc)
 {
+    /* Information about the server to send the HTTP requests. */
+    ServerInfo_t serverInfo = {};
+
+    /* Initialize server information. */
+    serverInfo.pHostName = mqttd_httpc->host;
+    serverInfo.hostNameLength = mqttd_httpc->host_len;
+    serverInfo.port = mqttd_httpc->http_port;
+
     /* Return value of main. */
     int32_t returnStatus = EXIT_SUCCESS;
     /* The transport layer interface used by the HTTP Client library. */
-    TransportInterface_t transportInterface;
+    TransportInterface_t transportInterface = {};
     /* The network context for the transport layer interface. */
-    NetworkContext_t networkContext;
-    PlaintextParams_t plaintextParams;
-    /* An array of HTTP paths to request. */
-    const httpPathStrings_t httpMethodPaths[] =
-        {
-            {GET_PATH, GET_PATH_LENGTH}
-            /*{ HEAD_PATH, HEAD_PATH_LENGTH },
-            { PUT_PATH,  PUT_PATH_LENGTH  },
-            { POST_PATH, POST_PATH_LENGTH }*/
-        };
-    /* The respective method for the HTTP paths listed in #httpMethodPaths. */
-    const httpMethodStrings_t httpMethods[] =
-        {
-            {HTTP_METHOD_GET, HTTP_METHOD_GET_LENGTH}
-            /*{ HTTP_METHOD_HEAD, HTTP_METHOD_HEAD_LENGTH },
-            { HTTP_METHOD_PUT,  HTTP_METHOD_PUT_LENGTH  },
-            { HTTP_METHOD_POST, HTTP_METHOD_POST_LENGTH }*/
-        };
-
-    (void)argc;
-    (void)argv;
+    NetworkContext_t networkContext = {};
+    PlaintextParams_t plaintextParams = {};
 
     /* Set the pParams member of the network context with desired transport. */
     networkContext.pParams = &plaintextParams;
 
-    for (;;)
+    /**************************** Connect. ******************************/
+
+    /* Establish TCP connection. */
+    /* Attempt to connect to the HTTP server. If connection fails, retry after
+     * a timeout. Timeout value will be exponentially increased till the maximum
+     * attempts are reached or maximum timeout value is reached. The function
+     * returns EXIT_FAILURE if the TCP connection cannot be established to
+     * broker after configured number of attempts. */
+
+    osapi_printf("try connect \n");
+    returnStatus = connectToServer(&networkContext, &serverInfo);
+    if (returnStatus == EXIT_FAILURE)
     {
-        int i = 0;
-
-        /**************************** Connect. ******************************/
-
-        /* Establish TCP connection. */
-        if (returnStatus == EXIT_SUCCESS)
-        {
-            /* Attempt to connect to the HTTP server. If connection fails, retry after
-             * a timeout. Timeout value will be exponentially increased till the maximum
-             * attempts are reached or maximum timeout value is reached. The function
-             * returns EXIT_FAILURE if the TCP connection cannot be established to
-             * broker after configured number of attempts. */
-            returnStatus = connectToServer(&networkContext);
-
-            if (returnStatus == EXIT_FAILURE)
-            {
-                /* Log error to indicate connection failure after all
-                 * reconnect attempts are over. */
-                sys_httpc_debug("Failed to connect to HTTP server %.*s.",
-                                (int32_t)SERVER_HOST_LENGTH,
-                                SERVER_HOST);
-            }
-        }
-
-        /* Define the transport interface. */
-        if (returnStatus == EXIT_SUCCESS)
-        {
-            (void)memset(&transportInterface, 0, sizeof(transportInterface));
-            transportInterface.recv = Plaintext_Recv;
-            transportInterface.send = Plaintext_Send;
-            transportInterface.pNetworkContext = &networkContext;
-        }
-
-        /********************** Send HTTPS requests. ************************/
-
-        for (i = 0; i < NUMBER_HTTP_PATHS; i++)
-        {
-            if (returnStatus == EXIT_SUCCESS)
-            {
-                returnStatus = sendHttpRequest(&transportInterface,
-                                               httpMethods[i].httpMethod,
-                                               httpMethods[i].httpMethodLength,
-                                               httpMethodPaths[i].httpPath,
-                                               httpMethodPaths[i].httpPathLength);
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        if (returnStatus == EXIT_SUCCESS)
-        {
-            /* Log message indicating an iteration completed successfully. */
-            LogInfo(("Demo completed successfully."));
-        }
-
-        /************************** Disconnect. *****************************/
-
-        /* Close TCP connection. */
-        (void)Plaintext_Disconnect(&networkContext);
-
-        break; /* end test. */
-
-        LogInfo(("Short delay before starting the next iteration....\n"));
-        sleep(DEMO_LOOP_DELAY_SECONDS);
+        /* Log error to indicate connection failure after all
+         * reconnect attempts are over. */
+        sys_httpc_debug("Failed to connect to HTTP server %s.", SERVER_HOST);
     }
+
+    /* Define the transport interface. */
+    if (returnStatus == EXIT_SUCCESS)
+    {
+        (void)memset(&transportInterface, 0, sizeof(transportInterface));
+        transportInterface.recv = Plaintext_Recv;
+        transportInterface.send = Plaintext_Send;
+        transportInterface.pNetworkContext = &networkContext;
+    }
+
+    /********************** Send HTTPS requests. ************************/
+
+    if (returnStatus == EXIT_SUCCESS)
+    {
+        returnStatus = sendHttpRequest(&transportInterface, HTTP_METHOD_GET,
+                                       HTTP_METHOD_GET_LENGTH,
+                                       mqttd_httpc);
+    }
+    else
+    {
+    }
+
+    if (returnStatus == EXIT_SUCCESS)
+    {
+        /* Log message indicating an iteration completed successfully. */
+        sys_httpc_debug("Demo completed successfully.");
+    }
+
+    /************************** Disconnect. *****************************/
+
+    /* Close TCP connection. */
+    (void)Plaintext_Disconnect(&networkContext);
+
+    sys_httpc_debug("Short delay before starting the next iteration....\n");
 
     return returnStatus;
 }
-
-int mqttd_http_update(int argc,
-                     char **argv)
-{
-    /* Return value of main. */
-    int32_t returnStatus = EXIT_SUCCESS;
-    /* The transport layer interface used by the HTTP Client library. */
-    TransportInterface_t transportInterface;
-    /* The network context for the transport layer interface. */
-    NetworkContext_t networkContext;
-    PlaintextParams_t plaintextParams;
-    /* An array of HTTP paths to request. */
-    const httpPathStrings_t httpMethodPaths[] =
-        {
-            {GET_PATH, GET_PATH_LENGTH}
-            /*{ HEAD_PATH, HEAD_PATH_LENGTH },
-            { PUT_PATH,  PUT_PATH_LENGTH  },
-            { POST_PATH, POST_PATH_LENGTH }*/
-        };
-    /* The respective method for the HTTP paths listed in #httpMethodPaths. */
-    const httpMethodStrings_t httpMethods[] =
-        {
-            {HTTP_METHOD_GET, HTTP_METHOD_GET_LENGTH}
-            /*{ HTTP_METHOD_HEAD, HTTP_METHOD_HEAD_LENGTH },
-            { HTTP_METHOD_PUT,  HTTP_METHOD_PUT_LENGTH  },
-            { HTTP_METHOD_POST, HTTP_METHOD_POST_LENGTH }*/
-        };
-
-    (void)argc;
-    (void)argv;
-
-    /* Set the pParams member of the network context with desired transport. */
-    networkContext.pParams = &plaintextParams;
-
-    for (;;)
-    {
-        int i = 0;
-
-        /**************************** Connect. ******************************/
-
-        /* Establish TCP connection. */
-        if (returnStatus == EXIT_SUCCESS)
-        {
-            /* Attempt to connect to the HTTP server. If connection fails, retry after
-             * a timeout. Timeout value will be exponentially increased till the maximum
-             * attempts are reached or maximum timeout value is reached. The function
-             * returns EXIT_FAILURE if the TCP connection cannot be established to
-             * broker after configured number of attempts. */
-            returnStatus = connectToServer(&networkContext);
-
-            if (returnStatus == EXIT_FAILURE)
-            {
-                /* Log error to indicate connection failure after all
-                 * reconnect attempts are over. */
-                sys_httpc_debug("Failed to connect to HTTP server %.*s.",
-                                (int32_t)SERVER_HOST_LENGTH,
-                                SERVER_HOST);
-            }
-        }
-
-        /* Define the transport interface. */
-        if (returnStatus == EXIT_SUCCESS)
-        {
-            (void)memset(&transportInterface, 0, sizeof(transportInterface));
-            transportInterface.recv = Plaintext_Recv;
-            transportInterface.send = Plaintext_Send;
-            transportInterface.pNetworkContext = &networkContext;
-        }
-
-        /********************** Send HTTPS requests. ************************/
-
-        for (i = 0; i < NUMBER_HTTP_PATHS; i++)
-        {
-            if (returnStatus == EXIT_SUCCESS)
-            {
-                returnStatus = sendHttpRequest(&transportInterface,
-                                               httpMethods[i].httpMethod,
-                                               httpMethods[i].httpMethodLength,
-                                               httpMethodPaths[i].httpPath,
-                                               httpMethodPaths[i].httpPathLength);
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        if (returnStatus == EXIT_SUCCESS)
-        {
-            /* Log message indicating an iteration completed successfully. */
-            LogInfo(("Demo completed successfully."));
-        }
-
-        /************************** Disconnect. *****************************/
-
-        /* Close TCP connection. */
-        (void)Plaintext_Disconnect(&networkContext);
-
-        break; /* end test. */
-
-        LogInfo(("Short delay before starting the next iteration....\n"));
-        sleep(DEMO_LOOP_DELAY_SECONDS);
-    }
-
-    return returnStatus;
-}
-
 
 #endif /* AIR_SUPPORT_MQTTD */

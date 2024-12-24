@@ -46,6 +46,7 @@
 #include <air_chipscu.h>
 #include "mqttd.h"
 #include "mqttd_queue.h"
+#include "mqttd_http.h"
 #include "mw_error.h"
 #include "mw_utils.h"
 #include "lwip/ip.h"
@@ -5920,30 +5921,33 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
         }
     }
 
-/*     ip_addr_t server_addr = {0};
-    u32_t addr = 0x0a00a8c0;//0xc0a8000a;//ipaddr_addr("192.168.0.10");
-    osapi_memcpy(&server_addr, &addr, sizeof(server_addr));
-    mqttd_debug("Server address: %s\n", ipaddr_ntoa(&server_addr));
+    osapi_printf("-------------------------------------------------\n");
+    mqttd_http_t mqttd_httpc = {};
+    char buff[1024] = {};
+    mqttd_httpc.http_port = 8080;
+    mqttd_httpc.host = "192.168.0.100";
+    mqttd_httpc.host_len = strlen(mqttd_httpc.host);
+    mqttd_httpc.http_path = "/1.txt";
+    mqttd_httpc.http_path_len = strlen(mqttd_httpc.http_path);
+    mqttd_httpc.response_buffer = buff;
+    mqttd_httpc.response_buffer = sizeof(buff);
+    rc = mqttd_http_update(&mqttd_httpc); 
+    if(MW_E_OK != rc){
+        mqttd_debug("mqttd_http_update failed!\n");  
+    }
 
-    u16_t port = 8080;
-    char *uri = "http://192.168.0.10:8080/airRTOSSystem.img"; 
-    httpc_connection_t settings = {0};
-    memset(&settings, 0, sizeof(settings));
-    settings.altcp_allocator = NULL;
-
-    altcp_recv_fn recv_fn = _mqttd_test_recv;
-    void *callback_arg = NULL;
-    httpc_state_t *connection = NULL;
-    rc = httpc_get_file(&server_addr, port, uri, &settings, recv_fn, callback_arg, &connection);
-    mqttd_debug("httpc_get_file return %d", rc);
- */
     //create rx json
     root = cJSON_CreateObject();
 
     // 添加键值对到 JSON 对象
     cJSON_AddStringToObject(root, "type", "update");
     cJSON_AddStringToObject(root, "msg_id", msgid_obj->valuestring);
-    cJSON_AddStringToObject(root, "result", "ok");
+    if(rc == MW_E_OK){
+        cJSON_AddStringToObject(root, "result", "ok");
+    }
+    else{
+        cJSON_AddStringToObject(root, "result", "fail");
+    }
 
     mqtt_send_json_and_free(mqttdctl, topic, root); 
 
