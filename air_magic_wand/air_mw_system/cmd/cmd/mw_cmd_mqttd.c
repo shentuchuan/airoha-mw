@@ -67,6 +67,7 @@
 
 #ifdef AIR_SUPPORT_MQTTD
 #include "mqttd.h"
+#include "mqttd_http.h"
 #include "inet_utils.h"
 #include "sys_mgmt.h"
 
@@ -1046,7 +1047,23 @@ static void sys_httpc_task(void *ptr_pvParameters)
 
     case 5:
     {
-        _mqtt_http_test_tcp_file();
+        int rc = 0;
+        char host[] = "192.168.0.100";
+        char http_path[] = "/1.txt";
+        mqttd_http_t mqttd_httpc = {};
+        char buff[1024] = {};
+        mqttd_httpc.http_port = 8080;
+        mqttd_httpc.host = host;
+        mqttd_httpc.host_len = strlen(mqttd_httpc.host);
+        mqttd_httpc.http_path = http_path;
+        mqttd_httpc.http_path_len = strlen(mqttd_httpc.http_path);
+        mqttd_httpc.response_buffer = buff;
+        mqttd_httpc.response_buffer = sizeof(buff);
+        rc = mqttd_http_update(&mqttd_httpc);
+        if (MW_E_OK != rc)
+        {
+            mqttd_debug("mqttd_http_update failed!\n");
+        }
     }
     break;
 

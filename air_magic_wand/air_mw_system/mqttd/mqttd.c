@@ -5921,20 +5921,22 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
         }
     }
 
-    osapi_printf("-------------------------------------------------\n");
+/*     osapi_printf("-------------------------------------------------\n");
+    char host[] = "192.168.0.100";
+    char http_path[] = "/1.txt";
     mqttd_http_t mqttd_httpc = {};
     char buff[1024] = {};
     mqttd_httpc.http_port = 8080;
-    mqttd_httpc.host = "192.168.0.100";
+    mqttd_httpc.host = host;
     mqttd_httpc.host_len = strlen(mqttd_httpc.host);
-    mqttd_httpc.http_path = "/1.txt";
+    mqttd_httpc.http_path = http_path;
     mqttd_httpc.http_path_len = strlen(mqttd_httpc.http_path);
     mqttd_httpc.response_buffer = buff;
     mqttd_httpc.response_buffer = sizeof(buff);
     rc = mqttd_http_update(&mqttd_httpc); 
     if(MW_E_OK != rc){
         mqttd_debug("mqttd_http_update failed!\n");  
-    }
+    } */
 
     //create rx json
     root = cJSON_CreateObject();

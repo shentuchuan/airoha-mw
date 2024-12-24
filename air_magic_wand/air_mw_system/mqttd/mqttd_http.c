@@ -316,7 +316,7 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
         response.pBuffer = resp_userBuffer;
         response.bufferLen = USER_BUFFER_LENGTH;
 
-        sys_httpc_debug("Sending HTTP %s request to %s %s...",
+        sys_httpc_debug("Sending HTTP %s request to %s %s...\n",
                         requestInfo.pMethod,
                         SERVER_HOST,
                         requestInfo.pPath);
@@ -345,7 +345,7 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     }
     else
     {
-        sys_httpc_debug("Failed to initialize HTTP request headers: Error=%s.",
+        sys_httpc_debug("Failed to initialize HTTP request headers: Error=%s.\n",
                         HTTPClient_strerror(httpStatus));
     }
 
@@ -363,7 +363,7 @@ static int32_t sendHttpRequest(const TransportInterface_t *pTransportInterface,
     }
     else
     {
-        sys_httpc_debug("Failed to send HTTP %s request to %s%s: Error=%s.",
+        sys_httpc_debug("Failed to send HTTP %s request to %s%s: Error=%s.\n",
                         requestInfo.pMethod,
                         SERVER_HOST,
                         requestInfo.pPath,
@@ -410,8 +410,9 @@ int mqttd_http_update(mqttd_http_t *mqttd_httpc)
      * returns EXIT_FAILURE if the TCP connection cannot be established to
      * broker after configured number of attempts. */
 
-    osapi_printf("try connect \n");
+    sys_httpc_debug("try connect \n");
     returnStatus = connectToServer(&networkContext, &serverInfo);
+    sys_httpc_debug("try connect %d \n", returnStatus);
     if (returnStatus == EXIT_FAILURE)
     {
         /* Log error to indicate connection failure after all
@@ -443,7 +444,7 @@ int mqttd_http_update(mqttd_http_t *mqttd_httpc)
     if (returnStatus == EXIT_SUCCESS)
     {
         /* Log message indicating an iteration completed successfully. */
-        sys_httpc_debug("Demo completed successfully.");
+        sys_httpc_debug("Demo completed successfully.\n");
     }
 
     /************************** Disconnect. *****************************/
