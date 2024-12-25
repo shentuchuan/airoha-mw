@@ -59,6 +59,7 @@
 #include "lwip/netif.h"
 #include "mbedtls/md5.h"
 #include "osapi.h"
+#include "osapi_memory.h"
 #include "osapi_timer.h"
 #include "osapi_thread.h"
 #include "osapi_string.h"
@@ -5855,6 +5856,62 @@ err_t _mqttd_test_recv(void *arg, struct altcp_pcb *conn, struct pbuf *p, err_t 
     mqttd_debug("-------------------------------------------------\n");
     mqttd_debug("-------------------------------------------------\n");
     return MW_E_OK;
+}
+
+static MW_ERROR_NO_T  _mqttd_handle_parse_url(char *url, char** domain, char** path)
+{
+    const char* protocol = "http://";
+    const char* pathStart = "/";
+
+    // 检查URL是否以http://开头
+    if (osapi_strncmp(url, protocol, osapi_strlen(protocol)) != 0) {
+        *domain = NULL;
+        *path = NULL;
+        return MW_E_BAD_PARAMETER;
+    }
+
+    // 找到协议部分之后的第一个字符
+    const char* domainStart = url + osapi_strlen(protocol);
+
+    // 找到路径部分的开始
+    const char* domainEnd =  strstr(domainStart, pathStart);
+    if (domainEnd == NULL) {
+        // 如果没有找到路径部分，整个剩余部分都是域名
+        domainEnd = url + osapi_strlen(url);
+    }
+
+    // 计算域名的长度
+    size_t domainLength = domainEnd - domainStart;
+
+    // 分配内存存储域名
+    *domain = (char*)mqtt_malloc(domainLength + 1);
+    if (*domain == NULL) {
+        *path = NULL;
+        return MW_E_BAD_PARAMETER;
+    }
+
+    // 复制域名到新分配的内存
+    osapi_strncpy(*domain, domainStart, domainLength);
+    (*domain)[domainLength] = '\0';
+
+    // 如果有路径部分，提取路径
+    if (domainEnd < url + osapi_strlen(url)) {
+        size_t pathLength = osapi_strlen(url) - (domainEnd - url);
+        *path = (char*)mqtt_malloc(pathLength + 1);
+        if (*path == NULL) {
+            mqtt_free(*domain);
+            *domain = NULL;
+            return MW_E_BAD_PARAMETER;
+        }
+        osapi_strcpy(*path, domainEnd);
+    } else {
+        *path = NULL;
+    }
+    return MW_E_OK;
+}
+
+static MW_ERROR_NO_T  _mqttd_handle_update_firmware(MQTTD_CTRL_T *mqttdctl,  cJSON *json_obj)
+{
 }
 
 static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_obj)
