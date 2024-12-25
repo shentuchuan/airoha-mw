@@ -5910,8 +5910,100 @@ static MW_ERROR_NO_T  _mqttd_handle_parse_url(char *url, char** domain, char** p
     return MW_E_OK;
 }
 
-static MW_ERROR_NO_T  _mqttd_handle_update_firmware(MQTTD_CTRL_T *mqttdctl,  cJSON *json_obj)
+void _mqttd_reboot(){
+    int rc = MW_E_OK;
+    BOOL_T reboot = TRUE;
+    DB_SYSTEM_T sys_cfg;
+    /* parser params to db format */
+    if (TRUE == reboot)
+    {
+        memset(&sys_cfg, 0, sizeof(sys_cfg));
+        sys_cfg.reset = reboot;
+        rc = mqttd_queue_setData(M_UPDATE, SYSTEM, DB_ALL_FIELDS, DB_ALL_ENTRIES, &sys_cfg, sizeof(sys_cfg));
+
+        if ((MW_E_OK == rc) && (TRUE == mqttd_get_state()))
+        {
+            UI8_T enable = FALSE;
+            rc = mqttd_queue_setData(M_UPDATE, MQTTD_CFG_INFO, MQTTD_CFG_ENABLE, DB_ALL_ENTRIES, &enable, sizeof(enable));
+            if(MW_E_OK != rc){
+                mqttd_debug("Disable mqttd failed.");
+            }
+        }        
+    } 
+
+    //重启设备
+    mqttd_debug("start reboot system ......");
+    air_chipscu_resetSystem(0);    
+}
+
+static MW_ERROR_NO_T  _mqttd_handle_update_firmware(mqtt_http_update_t *http_update)
 {
+    int rc = MW_E_OK;
+    if(http_update->method == 0) {
+        return rc;
+    }
+
+    mqttd_http_t *mqttd_httpc = NULL;
+    mqttd_httpc = mqtt_malloc(sizeof(mqttd_http_t));
+    if(NULL == mqttd_httpc){
+        mqttd_debug("mqttd_httpc malloc failed.");
+        return MW_E_BAD_PARAMETER;
+    } 
+    osapi_memset(mqttd_httpc, 0, sizeof(mqttd_http_t));
+    rc = _mqttd_handle_parse_url(http_update->download, &mqttd_httpc->host, &mqttd_httpc->http_path);
+    if(MW_E_OK != rc){
+        mqttd_debug("_mqttd_handle_parse_url failed.");
+        return rc;
+    }
+
+    mqttd_httpc->http_port = 80;
+    /*
+    WriteBufferInit((unsigned char *) TempSystemBase);  
+    mqttd_httpc->response_buffer = (char *)TempSystemBase;
+    mqttd_httpc->response_buffer_len = TempSystemSize;
+    */
+    mqttd_httpc->response_buffer = mqtt_malloc(1024);
+    mqttd_httpc->response_buffer_len = 1024;
+    mqttd_httpc->host_len = strlen(mqttd_httpc->host);
+    mqttd_httpc->http_path_len = strlen(mqttd_httpc->http_path);
+
+    mqttd_httpc_thread_create(mqttd_httpc);
+
+    while(1){
+        if(mqttd_httpc->status < 0) {
+            continue;
+        }
+        else if (mqttd_httpc->status == 0) {
+            /* Chechk image CRC and prepare fw upgrade */
+            if (crc_check((unsigned char *) TempSystemBase) == 0 )
+            {
+                update_upgrade_flag(1);
+                rc = MW_E_OK;
+            }else {
+                rc = MW_E_OP_STOPPED;
+            }
+            break;
+        }
+        else{
+            rc = MW_E_TIMEOUT;
+            break;
+        }
+
+        osapi_delay(1000);
+    }
+    osapi_free(mqttd_httpc->http_path);
+    osapi_free(mqttd_httpc->host);
+    osapi_free(mqttd_httpc->response_buffer);
+    osapi_free(mqttd_httpc);
+
+    if((1 == http_update->method) && (rc == MW_E_OK)){
+        //强制升级，并立即重启
+        //_mqttd_reboot();
+    }else{
+        //升级后，暂不重启
+    }
+
+    return rc;
 }
 
 static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_obj)
@@ -5976,6 +6068,20 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
         if (cJSON_IsNumber(method)) {
             mqttd_debug("Method: %d\n", method->valueint);
         }
+    }
+
+    mqtt_http_update_t http_update = {
+        .version = version->valuestring,
+        .download = download->valuestring,
+        .md5 = md5->valuestring,
+        .encryption = encryption->valuestring,
+        .secret_key = secret_key->valuestring,
+        .method = method->valueint,
+    };
+
+    rc = _mqttd_handle_update_firmware(&http_update);
+    if(MW_E_OK != rc){
+        mqttd_debug("mqttd_handle_update_firmware failed!\n");
     }
 
 /*     osapi_printf("-------------------------------------------------\n");

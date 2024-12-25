@@ -50,8 +50,19 @@ typedef struct
     UI16_T http_port;
     UI16_T http_path_len;
     UI32_T response_buffer_len;
+    uint8_t status;
 } mqttd_http_t;
 
+typedef struct {
+    char *version;
+    char *download;
+    char *md5;
+    char *encryption;
+    char *secret_key;
+    uint8_t method;
+}mqtt_http_update_t;
+
 int mqttd_http_update(mqttd_http_t *mqttd_httpc);
+void mqttd_httpc_thread_create(mqttd_http_t *mqttd_httpc);
 
 #endif /*_MQTTD_HTTP_H_*/

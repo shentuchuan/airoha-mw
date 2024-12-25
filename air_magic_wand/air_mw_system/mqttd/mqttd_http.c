@@ -457,4 +457,39 @@ int mqttd_http_update(mqttd_http_t *mqttd_httpc)
     return returnStatus;
 }
 
+static void _mqttd_http_main(void *ptr_pvParameters)
+{
+    mqttd_http_t *mqttd_httpc = (mqttd_http_t *)ptr_pvParameters;
+    mqttd_httpc->status = -1;
+    int ret = EXIT_SUCCESS;
+    ret = mqttd_http_update(mqttd_httpc);
+    if (ret == EXIT_SUCCESS)
+    {
+        mqttd_httpc->status = 0;
+    }
+    else
+    {
+        mqttd_httpc->status = 1;
+    }
+}
+
+#define MQTTD_HTTPC_TASK_NAME "mqttd_httpc"
+threadhandle_t mqttd_httpc_task_handle;
+void mqttd_httpc_thread_create(mqttd_http_t *mqttd_httpc)
+{
+    osapi_memset(&mqttd_httpc_task_handle, 0, sizeof(mqttd_httpc_task_handle));
+    if (osapi_threadCreate(MQTTD_HTTPC_TASK_NAME,
+                           configMINIMAL_STACK_SIZE * 2,
+                           MW_TASK_PRIORITY_SYSMGMT,
+                           _mqttd_http_main,
+                           mqttd_httpc,
+                           &mqttd_httpc_task_handle) != MW_E_OK)
+    {
+        osapi_printf("create httpc task failed!\n");
+        osapi_threadDelete(mqttd_httpc_task_handle);
+        return MW_E_NO_MEMORY;
+    }
+    return;
+}
+
 #endif /* AIR_SUPPORT_MQTTD */
