@@ -129,6 +129,23 @@ mqttd_get_queue_init()
     return MW_E_OK;
 }
 
+MW_ERROR_NO_T inline
+mqttd_httpc_queue_init()
+{
+    MW_ERROR_NO_T rc = MW_E_OK;
+    
+    /* Create a queue for the blocking interaction with the DB task */
+    rc = osapi_msgCreate(
+        MQTTD_HTTPC_QUEUE_NAME,
+        MQTTD_HTTPC_QUEUE_LEN,
+        MQTTD_ACCEPTMBOX_SIZE);
+    if (MW_E_OK != rc)
+    {
+        return MW_E_NOT_INITED;
+    }
+    return MW_E_OK;
+}
+
 
 MW_ERROR_NO_T inline
 mqttd_timer_queue_init()
@@ -203,6 +220,27 @@ mqttd_get_queue_free()
         }
     }while(MW_E_OK == rc);
     osapi_msgDelete(MQTTD_GET_QUEUE_NAME);
+}
+
+void
+mqttd_httpc_queue_free()
+{
+    MW_ERROR_NO_T rc = MW_E_OK;
+    UI8_T *ptr_msg = NULL;
+
+    /* Flush the queue message */
+    do
+    {
+        rc = dbapi_recvMsg(
+                MQTTD_HTTPC_QUEUE_NAME,
+                &ptr_msg,
+                MQTTD_QUEUE_TIMEOUT);
+        if (MW_E_OK == rc)
+        {
+            osapi_free(ptr_msg);
+        }
+    }while(MW_E_OK == rc);
+    osapi_msgDelete(MQTTD_HTTPC_QUEUE_NAME);
 }
 
 void
@@ -287,6 +325,27 @@ mqttd_get_queue_recv(
 
     return MW_E_OK;
 }
+
+MW_ERROR_NO_T mqttd_httpc_queue_recv(void **ptr_buf)
+{
+    MW_ERROR_NO_T rc;
+    UI8_T *ptr_msg = NULL;
+
+    rc = dbapi_recvMsg(
+        MQTTD_HTTPC_QUEUE_NAME,
+        &ptr_msg,
+        MQTTD_QUEUE_BLOCKTIMEOUT);
+    if (MW_E_OK != rc)
+    {
+        return rc;
+    }
+
+    //mqttd_debug_db("ptr_msg=%p", ptr_msg);
+    (*ptr_buf) = ptr_msg;
+
+    return MW_E_OK;
+}
+
 MW_ERROR_NO_T
 mqttd_timer_queue_recv(
     void **ptr_buf)
@@ -493,6 +552,32 @@ mqttd_get_queue_send(
     }
 
     (*pptr_out_msg) = ptr_msg;
+    return MW_E_OK;
+}
+
+MW_ERROR_NO_T
+mqttd_httpc_queue_send(UI8_T *ptr_msg)
+{
+    MW_ERROR_NO_T   rc = MW_E_OK;
+    DB_PAYLOAD_T    *ptr_payload = NULL;
+    UI32_T          msg_size;
+    UI16_T          total_size = 0;
+
+    if (NULL == osapi_msgFindHandle(MQTTD_HTTPC_QUEUE_NAME))
+    {
+        mqttd_debug_db("mqttd queue does not exist");
+        return MW_E_NOT_INITED;
+    }
+    rc = osapi_msgSend(
+        MQTTD_HTTPC_QUEUE_NAME,
+        (UI8_T *)ptr_msg,
+        0,
+        MQTTD_QUEUE_TIMEOUT);
+    if (MW_E_OK != rc)
+    {
+        osapi_printf("%s: Send message to httpc failed(%d)\n", __func__, rc);
+        return rc;
+    }
     return MW_E_OK;
 }
 

@@ -5939,9 +5939,9 @@ void _mqttd_reboot(){
 static MW_ERROR_NO_T  _mqttd_handle_update_firmware(mqtt_http_update_t *http_update)
 {
     int rc = MW_E_OK;
-    if(http_update->method == 0) {
+/*     if(http_update->method == 0) {
         return rc;
-    }
+    } */
 
     mqttd_http_t *mqttd_httpc = NULL;
     mqttd_httpc = mqtt_malloc(sizeof(mqttd_http_t));
@@ -5957,6 +5957,7 @@ static MW_ERROR_NO_T  _mqttd_handle_update_firmware(mqtt_http_update_t *http_upd
     }
 
     mqttd_httpc->http_port = 80;
+    mqttd_httpc->status = -1;
     /*
     WriteBufferInit((unsigned char *) TempSystemBase);  
     mqttd_httpc->response_buffer = (char *)TempSystemBase;
@@ -5967,17 +5968,18 @@ static MW_ERROR_NO_T  _mqttd_handle_update_firmware(mqtt_http_update_t *http_upd
     mqttd_httpc->host_len = strlen(mqttd_httpc->host);
     mqttd_httpc->http_path_len = strlen(mqttd_httpc->http_path);
 
-    mqttd_httpc_thread_create(mqttd_httpc);
+    mqttd_httpc_dump(mqttd_httpc);
+    mqttd_debug("_mqttd_handle_update_firmware start.\n");
 
-    while(1){
+    /* while(1){
+        mqttd_debug("mqttd_httpc->status %d.\n",mqttd_httpc->status);
         if(mqttd_httpc->status < 0) {
             continue;
         }
         else if (mqttd_httpc->status == 0) {
-            /* Chechk image CRC and prepare fw upgrade */
             if (crc_check((unsigned char *) TempSystemBase) == 0 )
             {
-                update_upgrade_flag(1);
+                //update_upgrade_flag(1);
                 rc = MW_E_OK;
             }else {
                 rc = MW_E_OP_STOPPED;
@@ -5989,16 +5991,73 @@ static MW_ERROR_NO_T  _mqttd_handle_update_firmware(mqtt_http_update_t *http_upd
             break;
         }
 
-        osapi_delay(1000);
-    }
+        osapi_delay(10000);
+    } */
+
+    /*
     osapi_free(mqttd_httpc->http_path);
     osapi_free(mqttd_httpc->host);
     osapi_free(mqttd_httpc->response_buffer);
-    osapi_free(mqttd_httpc);
+    osapi_free(mqttd_httpc);*/
 
     if((1 == http_update->method) && (rc == MW_E_OK)){
         //强制升级，并立即重启
         //_mqttd_reboot();
+        //update_upgrade_flag(1);
+    }else{
+        //升级后，暂不重启
+    }
+
+    return rc;
+}
+
+static MW_ERROR_NO_T  _mqttd_handle_update_firmware_queue(mqtt_http_update_t *http_update)
+{
+    int rc = MW_E_OK;
+/*     if(http_update->method == 0) {
+        return rc;
+    } */
+
+    mqttd_http_t *mqttd_httpc = NULL;
+    mqttd_httpc = mqtt_malloc(sizeof(mqttd_http_t));
+    if(NULL == mqttd_httpc){
+        mqttd_debug("mqttd_httpc malloc failed.");
+        return MW_E_BAD_PARAMETER;
+    } 
+    osapi_memset(mqttd_httpc, 0, sizeof(mqttd_http_t));
+    rc = _mqttd_handle_parse_url(http_update->download, &mqttd_httpc->host, &mqttd_httpc->http_path);
+    if(MW_E_OK != rc){
+        mqttd_debug("_mqttd_handle_parse_url failed.");
+        return rc;
+    }
+
+    mqttd_httpc->http_port = 80;
+    mqttd_httpc->status = -1;
+    /*
+    WriteBufferInit((unsigned char *) TempSystemBase);  
+    mqttd_httpc->response_buffer = (char *)TempSystemBase;
+    mqttd_httpc->response_buffer_len = TempSystemSize;
+    */
+    mqttd_httpc->response_buffer = mqtt_malloc(512);
+    mqttd_httpc->response_buffer_len = 512;
+    mqttd_httpc->host_len = strlen(mqttd_httpc->host);
+    mqttd_httpc->http_path_len = strlen(mqttd_httpc->http_path);
+
+    mqttd_httpc_dump(mqttd_httpc);
+    osapi_printf("----mqttd_httpc_queue_recv wait\n");
+    mqttd_httpc_queue_send(mqttd_httpc);
+    int8_t status = -1;
+
+    /*
+    osapi_free(mqttd_httpc->http_path);
+    osapi_free(mqttd_httpc->host);
+    osapi_free(mqttd_httpc->response_buffer);
+    osapi_free(mqttd_httpc);*/
+
+    if((1 == http_update->method) && (rc == MW_E_OK)){
+        //强制升级，并立即重启
+        //_mqttd_reboot();
+        //update_upgrade_flag(1);
     }else{
         //升级后，暂不重启
     }
@@ -6079,9 +6138,14 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
         .method = method->valueint,
     };
 
-    rc = _mqttd_handle_update_firmware(&http_update);
-    if(MW_E_OK != rc){
-        mqttd_debug("mqttd_handle_update_firmware failed!\n");
+    if(http_update.method == 0) {
+        rc = _mqttd_handle_update_firmware(&http_update);
+        if(MW_E_OK != rc){
+            mqttd_debug("mqttd_handle_update_firmware failed!\n");
+        }
+    }
+    else {
+        _mqttd_handle_update_firmware_queue(&http_update);
     }
 
 /*     osapi_printf("-------------------------------------------------\n");
@@ -7007,6 +7071,12 @@ MW_ERROR_NO_T mqttd_init(void *arg)
         return MW_E_NOT_INITED;
     }
 
+    rc = mqttd_httpc_queue_init();
+    if (MW_E_OK != rc)
+    {
+        return MW_E_NOT_INITED;
+    }
+
     /* mqttd timer get queue */
     rc = mqttd_timer_queue_init();
     if (MW_E_OK != rc)
@@ -7044,6 +7114,9 @@ MW_ERROR_NO_T mqttd_init(void *arg)
         osapi_mutexDelete(ptr_mqttmutex);
         return MW_E_NOT_INITED;
     }
+
+    /* mqttd main process */
+    mqttd_httpc_thread_create();
 
     /* mqttd main process */
     rc = osapi_processCreate(

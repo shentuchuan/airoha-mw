@@ -60,6 +60,7 @@
 
 #ifdef AIR_SUPPORT_MQTTD
 #include "mqttd.h"
+#include "mqttd_queue.h"
 #include "mqttd_http.h"
 #include "inet_utils.h"
 #include "sys_mgmt.h"
@@ -457,32 +458,59 @@ int mqttd_http_update(mqttd_http_t *mqttd_httpc)
     return returnStatus;
 }
 
+int8_t g_http_task_status = -1;
+
+int8_t mqttd_http_task_status_get()
+{
+    return g_http_task_status;
+}
+
+void mqttd_httpc_dump(mqttd_http_t *mqttd_httpc){
+    osapi_printf("mqttd_httpc_dump: %s \n", mqttd_httpc->host);
+    osapi_printf("  http_path: %s \n", mqttd_httpc->http_path);
+    osapi_printf("  http_port: %d \n", mqttd_httpc->http_port);
+    osapi_printf("  status: %d \n", mqttd_httpc->status);
+}
+
 static void _mqttd_http_main(void *ptr_pvParameters)
 {
-    mqttd_http_t *mqttd_httpc = (mqttd_http_t *)ptr_pvParameters;
-    mqttd_httpc->status = -1;
+    //mqttd_http_t *mqttd_httpc = (mqttd_http_t *)ptr_pvParameters;
+    osapi_printf("mqttd_http_main start.\n");
+    mqttd_http_t *mqttd_httpc = NULL;
+    g_http_task_status = -1;
     int ret = EXIT_SUCCESS;
-    ret = mqttd_http_update(mqttd_httpc);
-    if (ret == EXIT_SUCCESS)
-    {
-        mqttd_httpc->status = 0;
+    while(1) {
+        mqttd_httpc_queue_recv(&mqttd_httpc);
+        if(mqttd_httpc != NULL) {            
+            mqttd_httpc_dump(mqttd_httpc);
+            ret = mqttd_http_update(mqttd_httpc);
+            osapi_printf("mqttd_http_update end %d.\n", mqttd_httpc->status);
+            if (ret == EXIT_SUCCESS)
+            {
+                g_http_task_status = 0;
+                mqttd_httpc->status = 0;
+            }
+            else
+            {
+                g_http_task_status = 1;
+                mqttd_httpc->status = 1;
+            }
+            break;
+        }
     }
-    else
-    {
-        mqttd_httpc->status = 1;
-    }
+    osapi_printf("mqttd_http_update done %d.\n", mqttd_httpc->status);
 }
 
 #define MQTTD_HTTPC_TASK_NAME "mqttd_httpc"
 threadhandle_t mqttd_httpc_task_handle;
-void mqttd_httpc_thread_create(mqttd_http_t *mqttd_httpc)
+void mqttd_httpc_thread_create()
 {
     osapi_memset(&mqttd_httpc_task_handle, 0, sizeof(mqttd_httpc_task_handle));
     if (osapi_threadCreate(MQTTD_HTTPC_TASK_NAME,
                            configMINIMAL_STACK_SIZE * 2,
-                           MW_TASK_PRIORITY_SYSMGMT,
+                           MW_TASK_PRIORITY_SFP,
                            _mqttd_http_main,
-                           mqttd_httpc,
+                           NULL,
                            &mqttd_httpc_task_handle) != MW_E_OK)
     {
         osapi_printf("create httpc task failed!\n");
