@@ -57,7 +57,7 @@ typedef struct
 {
     char *version;
     char *download;
-    char *md5;
+    char *md5_string;
     char *encryption;
     char *secret_key;
     uint8_t method;

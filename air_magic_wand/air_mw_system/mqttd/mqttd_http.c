@@ -454,7 +454,6 @@ int mqttd_http_update(mqttd_http_t *mqttd_httpc)
     (void)Plaintext_Disconnect(&networkContext);
 
     sys_httpc_debug("Short delay before starting the next iteration....\n");
-
     return returnStatus;
 }
 
@@ -465,7 +464,8 @@ int8_t mqttd_http_task_status_get()
     return g_http_task_status;
 }
 
-void mqttd_httpc_dump(mqttd_http_t *mqttd_httpc){
+void mqttd_httpc_dump(mqttd_http_t *mqttd_httpc)
+{
     osapi_printf("mqttd_httpc_dump: %s \n", mqttd_httpc->host);
     osapi_printf("  http_path: %s \n", mqttd_httpc->http_path);
     osapi_printf("  http_port: %d \n", mqttd_httpc->http_port);
@@ -474,14 +474,16 @@ void mqttd_httpc_dump(mqttd_http_t *mqttd_httpc){
 
 static void _mqttd_http_main(void *ptr_pvParameters)
 {
-    //mqttd_http_t *mqttd_httpc = (mqttd_http_t *)ptr_pvParameters;
+    // mqttd_http_t *mqttd_httpc = (mqttd_http_t *)ptr_pvParameters;
     osapi_printf("mqttd_http_main start.\n");
     mqttd_http_t *mqttd_httpc = NULL;
     g_http_task_status = -1;
     int ret = EXIT_SUCCESS;
-    while(1) {
-        mqttd_httpc_queue_recv(&mqttd_httpc);
-        if(mqttd_httpc != NULL) {            
+    while (1)
+    {
+        mqttd2httpc_queue_recv(&mqttd_httpc);
+        if (mqttd_httpc != NULL)
+        {
             mqttd_httpc_dump(mqttd_httpc);
             ret = mqttd_http_update(mqttd_httpc);
             osapi_printf("mqttd_http_update end %d.\n", mqttd_httpc->status);
@@ -495,10 +497,10 @@ static void _mqttd_http_main(void *ptr_pvParameters)
                 g_http_task_status = 1;
                 mqttd_httpc->status = 1;
             }
-            break;
+            osapi_printf("mqttd_http_update done %d.\n", mqttd_httpc->status);
+            httpc2mqttd_queue_send(mqttd_httpc);
         }
     }
-    osapi_printf("mqttd_http_update done %d.\n", mqttd_httpc->status);
 }
 
 #define MQTTD_HTTPC_TASK_NAME "mqttd_httpc"

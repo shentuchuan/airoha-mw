@@ -71,6 +71,8 @@
 #include "air_l2.h"
 #include "web.h"
 #include "hr_cjson.h"
+#include "mbedtls/compat-1.3.h"
+
 #ifdef AIR_SUPPORT_SFP
 #include "sfp_db.h"
 #define SFP_DB_PORT_MODE_BASIC_PORT_TYPE_OFFSET    (6) /* port type bit7-6 */
@@ -6038,26 +6040,52 @@ static MW_ERROR_NO_T  _mqttd_handle_update_firmware_queue(mqtt_http_update_t *ht
     mqttd_httpc->response_buffer = (char *)TempSystemBase;
     mqttd_httpc->response_buffer_len = TempSystemSize;
     */
-    mqttd_httpc->response_buffer = mqtt_malloc(512);
-    mqttd_httpc->response_buffer_len = 512;
+    uint16_t buff_size = 512;
+    mqttd_httpc->response_buffer = mqtt_malloc(buff_size);
+    osapi_memset(mqttd_httpc->response_buffer, 0, buff_size);
+    mqttd_httpc->response_buffer_len = buff_size;
     mqttd_httpc->host_len = strlen(mqttd_httpc->host);
     mqttd_httpc->http_path_len = strlen(mqttd_httpc->http_path);
 
     mqttd_httpc_dump(mqttd_httpc);
     osapi_printf("----mqttd_httpc_queue_recv wait\n");
-    mqttd_httpc_queue_send(mqttd_httpc);
+    mqttd2httpc_queue_send(mqttd_httpc);
     int8_t status = -1;
 
-    /*
+    mqttd_http_t *mqttd_httpc_recv = NULL;
+    httpc2mqttd_queue_recv(&mqttd_httpc_recv);
+    if(NULL == mqttd_httpc_recv) {
+        mqttd_debug("try recv httpc msg failed!\n");
+        return MW_E_BAD_PARAMETER;
+    }    
+    mqttd_debug("----mqttd_httpc_queue_recv %d \n", mqttd_httpc_recv->status);
+    if(mqttd_httpc_recv->status < 0) {
+        rc = MW_E_BAD_PARAMETER;
+    }
+    else if (mqttd_httpc_recv->status == 0) {  
+        // check crc and md5
+        char output[17] = {0};
+        md5(mqttd_httpc->response_buffer, mqttd_httpc->response_buffer_len, output);
+        if (memcmp(output, http_update->md5_string, 16) != 0){
+            mqttd_debug("md5 check failed %s- %s!.\n", output, http_update->md5_string);
+        }        
+
+        if (crc_check((unsigned char *) TempSystemBase) == 0 )
+        {
+            //update_upgrade_flag(1);
+            rc = MW_E_OK;
+        }
+    }
+    
     osapi_free(mqttd_httpc->http_path);
     osapi_free(mqttd_httpc->host);
     osapi_free(mqttd_httpc->response_buffer);
-    osapi_free(mqttd_httpc);*/
+    osapi_free(mqttd_httpc);
 
     if((1 == http_update->method) && (rc == MW_E_OK)){
         //强制升级，并立即重启
-        //_mqttd_reboot();
-        //update_upgrade_flag(1);
+        update_upgrade_flag(1);
+        _mqttd_reboot();
     }else{
         //升级后，暂不重启
     }
@@ -6071,7 +6099,7 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
     cJSON *root = NULL;
     cJSON *version = NULL;
     cJSON *download = NULL;
-    cJSON *md5 = NULL;
+    cJSON *md5_obj = NULL;
     cJSON *encryption = NULL;
     cJSON *secret_key = NULL;
     cJSON *method = NULL;
@@ -6091,7 +6119,7 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
     if (cJSON_IsObject(data_obj)) {
         version = cJSON_GetObjectItemCaseSensitive(data_obj, "version");
         download = cJSON_GetObjectItemCaseSensitive(data_obj, "download");
-        md5 = cJSON_GetObjectItemCaseSensitive(data_obj, "md5");
+        md5_obj = cJSON_GetObjectItemCaseSensitive(data_obj, "md5");
         encryption = cJSON_GetObjectItemCaseSensitive(data_obj, "encryption");
         secret_key = cJSON_GetObjectItemCaseSensitive(data_obj, "secret_key");
         method = cJSON_GetObjectItemCaseSensitive(data_obj, "method");
@@ -6112,8 +6140,8 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
             }
         }
 
-        if (cJSON_IsString(md5) && (md5->valuestring != NULL)) {
-            mqttd_debug("MD5: %s\n", md5->valuestring);
+        if (cJSON_IsString(md5_obj) && (md5_obj->valuestring != NULL)) {
+            mqttd_debug("MD5: %s\n", md5_obj->valuestring);
         }
 
         if (cJSON_IsString(encryption) && (encryption->valuestring != NULL)) {
@@ -6132,21 +6160,13 @@ static MW_ERROR_NO_T  _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl,  cJSON *json_
     mqtt_http_update_t http_update = {
         .version = version->valuestring,
         .download = download->valuestring,
-        .md5 = md5->valuestring,
+        .md5_string = md5_obj->valuestring,
         .encryption = encryption->valuestring,
         .secret_key = secret_key->valuestring,
         .method = method->valueint,
     };
 
-    if(http_update.method == 0) {
-        rc = _mqttd_handle_update_firmware(&http_update);
-        if(MW_E_OK != rc){
-            mqttd_debug("mqttd_handle_update_firmware failed!\n");
-        }
-    }
-    else {
-        _mqttd_handle_update_firmware_queue(&http_update);
-    }
+    _mqttd_handle_update_firmware_queue(&http_update);
 
 /*     osapi_printf("-------------------------------------------------\n");
     char host[] = "192.168.0.100";
@@ -7071,7 +7091,13 @@ MW_ERROR_NO_T mqttd_init(void *arg)
         return MW_E_NOT_INITED;
     }
 
-    rc = mqttd_httpc_queue_init();
+    rc = mqttd2httpc_queue_init();
+    if (MW_E_OK != rc)
+    {
+        return MW_E_NOT_INITED;
+    }
+
+    rc = httpc2mqttd_queue_init();
     if (MW_E_OK != rc)
     {
         return MW_E_NOT_INITED;
