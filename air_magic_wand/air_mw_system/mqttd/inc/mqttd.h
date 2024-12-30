@@ -53,6 +53,12 @@
 /* MACRO FUNCTION DECLARATIONS
 */
 
+#define STORMCTRL_CFG_NOSETTING          0xff
+#define STORMCTRL_RATE_NOSETTING         0xffffffff
+#define PORT_TYPE_LIST_STRING_LEN        (64)
+#define SFP_MODE_LIST_STRING_LEN         (128)
+#define STORMCTRL_MAX_BUF_SIZE            (1024)
+
 #ifdef MQTT_EASY_DUMP
 
 #define mqttd_debug(...)      	printf(__VA_ARGS__)

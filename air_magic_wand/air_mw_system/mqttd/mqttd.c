@@ -5031,6 +5031,234 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
 	return rc;
 }
 
+static MW_ERROR_NO_T _mqttd_handle_getconfig_storm_control(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj)
+{
+    I32_T      i = 0;
+    I32_T      rc = MW_E_OK;
+    DB_MSG_T *ptr_msg = NULL;
+    u16_t    db_size = 0;
+    void     *db_data = NULL;
+
+    UI32_T         bc_rate_tmp = 0;
+    UI32_T         uc_rate_tmp = 0;
+    UI32_T         mc_rate_tmp = 0;
+    UI8_T          bc_cfg_tmp = 0;
+    UI8_T          uc_cfg_tmp = 0;
+    UI8_T          mc_cfg_tmp = 0;
+    UI8_T          bc_mode_tmp = 0;
+    UI8_T          uc_mode_tmp = 0;
+    UI8_T          mc_mode_tmp = 0;
+
+    C8_T err = ERR_OK;
+    uint8_t port_idx = 0;
+
+    for(port_idx = 1; port_idx < PLAT_MAX_PORT_NUM+1; port_idx++)
+    {
+        bc_rate_tmp = 0;
+        uc_rate_tmp = 0;
+        mc_rate_tmp = 0;
+        bc_cfg_tmp = 0;
+        uc_cfg_tmp = 0;
+        mc_cfg_tmp = 0;
+        bc_mode_tmp = 0;
+        uc_mode_tmp = 0;
+        mc_mode_tmp = 0;
+        /*cfg setting*/
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_BC_CFG, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI8_T)) != db_size)
+            {
+                mqttd_debug("Port %d: %d cfg size error \n", port_idx, PORT_STORM_BC_CFG);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                goto GET_FAIL;
+            }
+            bc_cfg_tmp = *((UI8_T *)db_data);
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_UC_CFG, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI8_T)) != db_size)
+            {
+                mqttd_debug("Port: %d cfg size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            uc_cfg_tmp = (UI8_T *)db_data;
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_MC_CFG, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI8_T)) != db_size)
+            {
+                mqttd_debug("Port: %d cfg size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            mc_cfg_tmp = (UI8_T *)db_data;
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        /*mode setting*/
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_BC_MODE, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI8_T)) != db_size)
+            {
+                mqttd_debug("Port: %d cfg size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            bc_mode_tmp = *((UI8_T *)db_data);
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_MC_MODE, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI8_T)) != db_size)
+            {
+                mqttd_debug("Port: %d cfg size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            mc_mode_tmp = *((UI8_T *)db_data);
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_UC_MODE, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI8_T)) != db_size)
+            {
+                mqttd_debug("Port: %d cfg size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            uc_mode_tmp = *((UI8_T *)db_data);
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_BC_RATE, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI32_T)) != db_size)
+            {
+                mqttd_debug("Port: %d rate size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            bc_rate_tmp = *(UI32_T *)db_data;
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_MC_RATE, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI32_T)) != db_size)
+            {
+                mqttd_debug("Port: %d rate size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            mc_rate_tmp = *(UI32_T *)db_data;
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+
+        rc = mqttd_queue_getData(PORT_CFG_INFO, PORT_STORM_UC_RATE, DB_ALL_ENTRIES, &ptr_msg , &db_size, &db_data);
+        if(MW_E_OK == rc)
+        {
+            if((sizeof(UI32_T)) != db_size)
+            {
+                mqttd_debug("Port: %d rate size error \n", port_idx);
+                osapi_free(ptr_msg);
+                err = MW_E_BAD_PARAMETER;
+                break;
+            }
+            uc_rate_tmp = *(UI32_T *)db_data;
+            osapi_free(ptr_msg);
+        }
+        else
+        {
+            mqttd_debug("get Stormctl value failed \n");
+            err = ERR_VAL;
+            break;
+        }
+    }
+
+    return err;
+
+GET_FAIL:
+    return err;    
+}
+
+
+static MW_ERROR_NO_T _mqttd_handle_getconfig_poe_control(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj)
+{
+    return MW_E_OK;
+}
+
+
 static MW_ERROR_NO_T _mqttd_handle_getconfig_jumbo_frame(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj)
 {
     MW_ERROR_NO_T rc = MW_E_OK;
@@ -5729,8 +5957,18 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_data(MQTTD_CTRL_T *mqttdctl,  cJSON
                 // Handle "port_limit_rate" case
             } else if (osapi_strcmp(child->valuestring, "storm_control") == 0) {
                 // Handle "storm_control" case
+                rc = _mqttd_handle_getconfig_storm_control(mqttdctl, data);
+                if (MW_E_OK != rc) {
+                    mqttd_debug("Handling setConfig jumbo_frame failed.");
+                    break;
+                }
             } else if (osapi_strcmp(child->valuestring, "poe_control") == 0) {
                 // Handle "poe_control" case
+                rc = _mqttd_handle_getconfig_poe_control(mqttdctl, data);
+                if (MW_E_OK != rc) {
+                    mqttd_debug("Handling setConfig jumbo_frame failed.");
+                    break;
+                }
             } else if (osapi_strcmp(child->valuestring, "jumbo_frame") == 0) {
                 rc = _mqttd_handle_getconfig_jumbo_frame(mqttdctl, data);
                 if (MW_E_OK != rc) {
