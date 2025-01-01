@@ -65,6 +65,7 @@ typedef struct
 
 int mqttd_http_update(mqttd_http_t *mqttd_httpc);
 void mqttd_httpc_thread_create();
+void mqttd_httpc_thread_exit(void);
 int8_t mqttd_http_task_status_get();
 void mqttd_httpc_dump(mqttd_http_t *mqttd_httpc);
 

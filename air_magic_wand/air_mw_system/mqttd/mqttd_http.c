@@ -504,22 +504,33 @@ static void _mqttd_http_main(void *ptr_pvParameters)
 }
 
 #define MQTTD_HTTPC_TASK_NAME "mqttd_httpc"
-threadhandle_t mqttd_httpc_task_handle;
+threadhandle_t g_mqttd_httpc_task_handle = NULL;
 void mqttd_httpc_thread_create()
 {
-    osapi_memset(&mqttd_httpc_task_handle, 0, sizeof(mqttd_httpc_task_handle));
+    osapi_printf("-------- try mqttd_http_main create ----------.\n");
+    if(g_mqttd_httpc_task_handle != NULL) {
+        osapi_printf("-------- mqttd_http_main create success ----------.\n");
+        return;
+    }
+
     if (osapi_threadCreate(MQTTD_HTTPC_TASK_NAME,
                            configMINIMAL_STACK_SIZE * 2,
                            MW_TASK_PRIORITY_SFP,
                            _mqttd_http_main,
                            NULL,
-                           &mqttd_httpc_task_handle) != MW_E_OK)
+                           &g_mqttd_httpc_task_handle) != MW_E_OK)
     {
         osapi_printf("create httpc task failed!\n");
-        osapi_threadDelete(mqttd_httpc_task_handle);
+        osapi_threadDelete(g_mqttd_httpc_task_handle);
         return MW_E_NO_MEMORY;
     }
     return;
+}
+
+void mqttd_httpc_thread_exit(void)
+{
+    osapi_printf("-------- mqttd_http_main exit ----------.\n");
+    osapi_threadDelete(g_mqttd_httpc_task_handle);
 }
 
 #endif /* AIR_SUPPORT_MQTTD */

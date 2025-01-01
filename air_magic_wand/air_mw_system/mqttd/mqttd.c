@@ -1016,6 +1016,23 @@ static void _mqttd_calc_port_traffic(MQTTD_CTRL_T *ptr_mqttd)
     return;
 }
 
+void _mqttd_storm_control_dump(uint16_t port_idx, storm_ctrl_t *storm_ctrl)
+{
+    mqttd_debug("------------------\nport= %d\n", port_idx);
+
+    mqttd_debug("storm_ctrl->bc_cfg = %d\n", storm_ctrl->bc_cfg);
+    mqttd_debug("storm_ctrl->bc_mode = %d\n", storm_ctrl->bc_mode);
+    mqttd_debug("storm_ctrl->bc_rate = %d\n", storm_ctrl->bc_rate);
+
+    mqttd_debug("storm_ctrl->uc_cfg = %d\n", storm_ctrl->uc_cfg);
+    mqttd_debug("storm_ctrl->uc_mode = %d\n", storm_ctrl->uc_mode);
+    mqttd_debug("storm_ctrl->uc_rate = %d\n", storm_ctrl->uc_rate);
+
+    mqttd_debug("storm_ctrl->mc_cfg = %d\n", storm_ctrl->mc_cfg);
+    mqttd_debug("storm_ctrl->mc_mode = %d\n", storm_ctrl->mc_mode);
+    mqttd_debug("storm_ctrl->mc_rate = %d\n", storm_ctrl->mc_rate);
+}
+
 static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_t *storm_ctrl)
 {
     I32_T rc = MW_E_OK;
@@ -1030,11 +1047,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI8_T)) != db_size)
         {
             mqttd_debug("Port %d: %d cfg size error \n", port_idx, PORT_STORM_BC_CFG);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->bc_cfg = *((UI8_T *)db_data);
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1048,11 +1065,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI8_T)) != db_size)
         {
             mqttd_debug("Port: %d cfg size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->uc_cfg = (UI8_T *)db_data;
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1066,11 +1083,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI8_T)) != db_size)
         {
             mqttd_debug("Port: %d cfg size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->mc_cfg = (UI8_T *)db_data;
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1085,11 +1102,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI8_T)) != db_size)
         {
             mqttd_debug("Port: %d cfg size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->bc_mode = *((UI8_T *)db_data);
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1103,11 +1120,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI8_T)) != db_size)
         {
             mqttd_debug("Port: %d cfg size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->mc_mode = *((UI8_T *)db_data);
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1121,11 +1138,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI8_T)) != db_size)
         {
             mqttd_debug("Port: %d cfg size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->uc_mode = *((UI8_T *)db_data);
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1139,11 +1156,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI32_T)) != db_size)
         {
             mqttd_debug("Port: %d rate size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->bc_rate = *(UI32_T *)db_data;
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1157,11 +1174,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI32_T)) != db_size)
         {
             mqttd_debug("Port: %d rate size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->mc_rate = *(UI32_T *)db_data;
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -1175,11 +1192,11 @@ static MW_ERROR_NO_T _mqttd_get_storm_control_cfg(uint16_t port_idx, storm_ctrl_
         if ((sizeof(UI32_T)) != db_size)
         {
             mqttd_debug("Port: %d rate size error \n", port_idx);
-            osapi_free(ptr_msg);
+            MW_FREE(ptr_msg);
             return MW_E_BAD_PARAMETER;
         }
         storm_ctrl->uc_rate = *(UI32_T *)db_data;
-        osapi_free(ptr_msg);
+        MW_FREE(ptr_msg);
     }
     else
     {
@@ -5044,6 +5061,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_storm_control(MQTTD_CTRL_T *mqttdct
         cJSON_ArrayForEach(item, data_obj)
         {
             osapi_memset(port_list, 0, sizeof(port_list));
+            osapi_memset(&storm_ctrl, 0, sizeof(storm_ctrl));
             port_num = 0;
 
             cJSON *p = cJSON_GetObjectItem(item, "p");
@@ -5080,6 +5098,7 @@ static MW_ERROR_NO_T _mqttd_handle_setconfig_storm_control(MQTTD_CTRL_T *mqttdct
             for (i = 0; i < port_num; i++)
             {
                 _mqttd_set_storm_control(port_list[i], &storm_ctrl);
+                _mqttd_storm_control_dump(port_list[i], &storm_ctrl);
             }
         }
     }
@@ -5731,23 +5750,6 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_static_mac(MQTTD_CTRL_T *mqttdctl, 
     return rc;
 }
 
-void _mqttd_storm_control_dump(uint16_t port_idx, storm_ctrl_t *storm_ctrl)
-{
-    mqttd_debug("------------------\nport= %d\n", port_idx);
-
-    mqttd_debug("storm_ctrl->bc_cfg = %d\n", storm_ctrl->bc_cfg);
-    mqttd_debug("storm_ctrl->bc_mode = %d\n", storm_ctrl->bc_mode);
-    mqttd_debug("storm_ctrl->bc_rate = %d\n", storm_ctrl->bc_rate);
-
-    mqttd_debug("storm_ctrl->uc_cfg = %d\n", storm_ctrl->uc_cfg);
-    mqttd_debug("storm_ctrl->uc_mode = %d\n", storm_ctrl->uc_mode);
-    mqttd_debug("storm_ctrl->uc_rate = %d\n", storm_ctrl->uc_rate);
-
-    mqttd_debug("storm_ctrl->mc_cfg = %d\n", storm_ctrl->mc_cfg);
-    mqttd_debug("storm_ctrl->mc_mode = %d\n", storm_ctrl->mc_mode);
-    mqttd_debug("storm_ctrl->mc_rate = %d\n", storm_ctrl->mc_rate);
-}
-
 static MW_ERROR_NO_T _mqttd_handle_getconfig_storm_control(MQTTD_CTRL_T *mqttdctl, cJSON *msgid_obj)
 {
     MW_ERROR_NO_T rc = MW_E_OK;
@@ -5766,7 +5768,7 @@ static MW_ERROR_NO_T _mqttd_handle_getconfig_storm_control(MQTTD_CTRL_T *mqttdct
             mqttd_debug("get Stormctl value failed \n");
             goto GET_FAIL;
         }
-        _mqttd_storm_control_dump(port_idx, &port_storm_ctrl);
+        //_mqttd_storm_control_dump(port_idx, &port_storm_ctrl);
         if ((STORMCTRL_CFG_NOSETTING == port_storm_ctrl.bc_cfg) && (STORMCTRL_CFG_NOSETTING == port_storm_ctrl.mc_cfg) && (STORMCTRL_CFG_NOSETTING == port_storm_ctrl.uc_cfg))
         {
             continue;
@@ -6966,29 +6968,33 @@ static MW_ERROR_NO_T _mqttd_handle_update_firmware_queue(mqtt_http_update_t *htt
 
     mqttd_http_t *mqttd_httpc_recv = NULL;
     httpc2mqttd_queue_recv(&mqttd_httpc_recv);
-    if(NULL == mqttd_httpc_recv) {
+    if (NULL == mqttd_httpc_recv)
+    {
         mqttd_debug("try recv httpc msg failed!\n");
         return MW_E_BAD_PARAMETER;
-    }    
+    }
     mqttd_debug("----mqttd_httpc_queue_recv %d \n", mqttd_httpc_recv->status);
-    if(mqttd_httpc_recv->status < 0) {
+    if (mqttd_httpc_recv->status < 0)
+    {
         rc = MW_E_BAD_PARAMETER;
     }
-    else if (mqttd_httpc_recv->status == 0) {  
+    else if (mqttd_httpc_recv->status == 0)
+    {
         // check crc and md5
         char output[17] = {0};
         md5(mqttd_httpc->response_buffer, mqttd_httpc->response_buffer_len, output);
-        if (memcmp(output, http_update->md5_string, 16) != 0){
-            mqttd_debug("md5 check failed %s- %s!.\n", output, http_update->md5_string);
-        }        
-
-        if (crc_check((unsigned char *) TempSystemBase) == 0 )
+        if (memcmp(output, http_update->md5_string, 16) != 0)
         {
-            //update_upgrade_flag(1);
+            mqttd_debug("md5 check failed %s- %s!.\n", output, http_update->md5_string);
+        }
+
+        if (crc_check((unsigned char *)TempSystemBase) == 0)
+        {
+            // update_upgrade_flag(1);
             rc = MW_E_OK;
         }
     }
-    
+
     osapi_free(mqttd_httpc->http_path);
     osapi_free(mqttd_httpc->host);
     osapi_free(mqttd_httpc->response_buffer);
@@ -7060,7 +7066,8 @@ static MW_ERROR_NO_T _mqttd_handle_update(MQTTD_CTRL_T *mqttdctl, cJSON *json_ob
             }
         }
 
-        if (cJSON_IsString(md5_obj) && (md5_obj->valuestring != NULL)) {
+        if (cJSON_IsString(md5_obj) && (md5_obj->valuestring != NULL))
+        {
             mqttd_debug("MD5: %s\n", md5_obj->valuestring);
         }
 
@@ -8030,6 +8037,8 @@ MW_ERROR_NO_T mqttd_init(void *arg)
     {
         mqttd_debug("Failed to create remain message mutex");
         mqttd_queue_free();
+        mqttd2httpc_queue_free();
+        httpc2mqttd_queue_free();
         mqttd_get_queue_free();
         mqttd_timer_queue_free();
         return MW_E_NOT_INITED;
@@ -8048,6 +8057,8 @@ MW_ERROR_NO_T mqttd_init(void *arg)
     {
         mqttd_debug("Failed to create MQTTD timer.");
         mqttd_queue_free();
+        mqttd2httpc_queue_free();
+        httpc2mqttd_queue_free();
         mqttd_get_queue_free();
         mqttd_timer_queue_free();
         osapi_mutexDelete(ptr_mqttmutex);
@@ -8070,6 +8081,8 @@ MW_ERROR_NO_T mqttd_init(void *arg)
     {
         mqttd_debug("Delete the remain message mutex and process mutex due to process create failed");
         mqttd_queue_free();
+        mqttd2httpc_queue_free();
+        httpc2mqttd_queue_free();        
         mqttd_get_queue_free();
         mqttd_timer_queue_free();
         osapi_mutexDelete(ptr_mqttmutex);
@@ -8130,6 +8143,8 @@ MW_ERROR_NO_T _mqttd_deinit(void)
     }
     /*free queue*/
     mqttd_queue_free();
+    mqttd2httpc_queue_free();
+    httpc2mqttd_queue_free();    
     mqttd_get_queue_free();
     mqttd_timer_queue_free();
     /* Create reconnect timer */
@@ -8151,6 +8166,7 @@ MW_ERROR_NO_T _mqttd_deinit(void)
         osapi_printf("Failed to create MQTTD Reconnect timer: No memory.\n");
     }
     osapi_processDelete(ptr_mqttdmain);
+    mqttd_httpc_thread_exit();
     ptr_mqttdmain = NULL;
     return MW_E_OK;
 }
