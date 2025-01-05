@@ -6962,8 +6962,9 @@ static MW_ERROR_NO_T _mqttd_handle_update_firmware_queue(mqtt_http_update_t *htt
     mqttd_httpc->http_path_len = strlen(mqttd_httpc->http_path);
 
     mqttd_httpc_dump(mqttd_httpc);
-    osapi_printf("----mqttd_httpc_queue_recv wait\n");
+    osapi_printf("----mqttd_httpc_queue_try send\n");
     mqttd2httpc_queue_send(mqttd_httpc);
+    osapi_printf("----mqttd_httpc_queue_recv wait\n");
     int8_t status = -1;
 
     mqttd_http_t *mqttd_httpc_recv = NULL;
@@ -7989,10 +7990,10 @@ MW_ERROR_NO_T mqttd_init(void *arg)
 
     if (ptr_mqttdmain != NULL)
     {
-        mqttd_debug("MQTTD %p already exist.", ptr_mqttdmain);
+        mqttd_debug("MQTTD %p already exist.\n", ptr_mqttdmain);
         return MW_E_ALREADY_INITED;
     }
-    mqttd_debug("Create the MQTTD task.");
+    osapi_printf("Create the MQTTD task.\n");
 
     /* mqttd control structure initialize */
     _mqttd_ctrl_init(&mqttd, (ip_addr_t *)arg);
@@ -8011,24 +8012,13 @@ MW_ERROR_NO_T mqttd_init(void *arg)
         return MW_E_NOT_INITED;
     }
 
-    rc = mqttd2httpc_queue_init();
-    if (MW_E_OK != rc)
-    {
-        return MW_E_NOT_INITED;
-    }
-
-    rc = httpc2mqttd_queue_init();
-    if (MW_E_OK != rc)
-    {
-        return MW_E_NOT_INITED;
-    }
-
     /* mqttd timer get queue */
     rc = mqttd_timer_queue_init();
     if (MW_E_OK != rc)
     {
         return MW_E_NOT_INITED;
     }
+
     /* mqttd remain message mutex */
     rc = osapi_mutexCreate(
         MQTTD_TASK_NAME,
@@ -8037,8 +8027,8 @@ MW_ERROR_NO_T mqttd_init(void *arg)
     {
         mqttd_debug("Failed to create remain message mutex");
         mqttd_queue_free();
-        mqttd2httpc_queue_free();
-        httpc2mqttd_queue_free();
+        /*         mqttd2httpc_queue_free();
+                httpc2mqttd_queue_free(); */
         mqttd_get_queue_free();
         mqttd_timer_queue_free();
         return MW_E_NOT_INITED;
@@ -8057,16 +8047,13 @@ MW_ERROR_NO_T mqttd_init(void *arg)
     {
         mqttd_debug("Failed to create MQTTD timer.");
         mqttd_queue_free();
-        mqttd2httpc_queue_free();
-        httpc2mqttd_queue_free();
+        /*         mqttd2httpc_queue_free();
+                httpc2mqttd_queue_free(); */
         mqttd_get_queue_free();
         mqttd_timer_queue_free();
         osapi_mutexDelete(ptr_mqttmutex);
         return MW_E_NOT_INITED;
     }
-
-    /* mqttd main process */
-    mqttd_httpc_thread_create();
 
     /* mqttd main process */
     rc = osapi_processCreate(
@@ -8081,8 +8068,8 @@ MW_ERROR_NO_T mqttd_init(void *arg)
     {
         mqttd_debug("Delete the remain message mutex and process mutex due to process create failed");
         mqttd_queue_free();
-        mqttd2httpc_queue_free();
-        httpc2mqttd_queue_free();        
+        /*         mqttd2httpc_queue_free();
+                httpc2mqttd_queue_free();   */
         mqttd_get_queue_free();
         mqttd_timer_queue_free();
         osapi_mutexDelete(ptr_mqttmutex);
@@ -8143,8 +8130,6 @@ MW_ERROR_NO_T _mqttd_deinit(void)
     }
     /*free queue*/
     mqttd_queue_free();
-    mqttd2httpc_queue_free();
-    httpc2mqttd_queue_free();    
     mqttd_get_queue_free();
     mqttd_timer_queue_free();
     /* Create reconnect timer */

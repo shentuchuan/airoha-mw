@@ -968,6 +968,7 @@ _sys_mgmt_db_msg_process(
                 if (TRUE == ((UI8_T *)ptr_data)[0])
                 {
                     /* mqttd initialization */
+                    osapi_printf("===db start mqttd init===\n");
                     mqttd_init(NULL);
                 }
                 else
@@ -1702,6 +1703,7 @@ void sys_mgmt_mqttd_enable_cmd_set(UI8_T enable, void *server_ip)
     if (TRUE == enable)
     {
         /* mqttd initialization */
+        osapi_printf("===cmd start mqttd init===\n");
         mqttd_init(server_ip);
     }
     else

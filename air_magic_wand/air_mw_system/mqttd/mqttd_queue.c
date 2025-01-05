@@ -620,7 +620,7 @@ MW_ERROR_NO_T mqttd2httpc_queue_send(UI8_T *ptr_msg)
 
     if (NULL == osapi_msgFindHandle(MQTTD_TO_HTTPC_QUEUE_NAME))
     {
-        mqttd_debug_db("mqttd queue does not exist");
+        mqttd_debug("mqttd queue does not exist\n");
         return MW_E_NOT_INITED;
     }
     rc = osapi_msgSend(
