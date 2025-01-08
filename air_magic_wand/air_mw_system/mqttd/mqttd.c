@@ -2399,8 +2399,8 @@ static MW_ERROR_NO_T _mqttd_publish_vlan_member(MQTTD_CTRL_T *ptr_mqttd, const D
     UI16_T db_size = 0;
     VLAN_ENTRY_INFO_T *vlan_entry = NULL;
     u8_t i = 1;
+    return rc;
     osapi_printf("publish vlancfg: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
-
     _mqttd_vlan_member_get();
 
     cJSON *vlan_member = cJSON_CreateArray();

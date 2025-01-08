@@ -975,7 +975,7 @@ mw_init_initModule(
 #ifdef AIR_SUPPORT_POE
     poe_init();
 #endif
-    mqttd_httpc_thread_create();
+    //mqttd_httpc_thread_create();
     return ret;
 }
 
