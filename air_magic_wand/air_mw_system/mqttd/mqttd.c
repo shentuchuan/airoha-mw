@@ -168,6 +168,10 @@ const C8_T cloud_hostname[] = "swmgr.hruicloud.com";
 
 #define MQTTD_MAC_TICK_OFFSET (0)
 #define MQTTD_MAX_CHUNK_NUM (3)
+
+#define MQTTD_UNBIND 	(0)
+#define MQTTD_BIND 		(1)
+
 typedef enum
 {
     MQTTD_TX_CAPABILITY = 0,
@@ -268,6 +272,7 @@ typedef struct MQTTD_CTRL_S
     UI32_T *tx;
     UI32_T *rx_rate;
     UI32_T *tx_rate;
+    UI8_T bind;
 } ATTRIBUTE_PACK MQTTD_CTRL_T;
 
 /* The port mirror information table */
@@ -710,6 +715,7 @@ static void _mqttd_ctrl_init(MQTTD_CTRL_T *ptr_mqttd, ip_addr_t *server_ip)
     ptr_mqttd->ticknum = 0;
     ptr_mqttd->status_ontick = MQTTD_PERIOD_TICK;
     ptr_mqttd->mac_ontick = MQTTD_PERIOD_TICK;
+    ptr_mqttd->bind = MQTTD_UNBIND;
 }
 
 /* FUNCTION NAME:  _mqttd_ctrl_free
@@ -6747,6 +6753,63 @@ static MW_ERROR_NO_T _mqttd_handle_reboot(MQTTD_CTRL_T *mqttdctl, cJSON *msgid_o
 
     return rc;
 }
+static MW_ERROR_NO_T _mqttd_handle_bind(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj, cJSON *msgid_obj, cJSON *bind_obj)
+{
+    MW_ERROR_NO_T rc = MW_E_OK;
+    int bind_rst = 0;//0:bind error, 1:bind ok
+#if 1
+    char *json_data = cJSON_Print(data_obj);
+    if (json_data)
+    {
+        mqttd_json_dump("bind: %s\n", json_data);
+        mqtt_free(json_data);
+    }
+#endif
+    
+    if(bind_obj == NULL)
+    {
+        bind_rst = 0;
+    }
+    else
+    {
+        cJSON *gwid_obj = cJSON_GetObjectItemCaseSensitive(data_obj, "gwid");
+        int bind_value = bind_obj->valueint;
+        if(bind_value == 1 && mqttdctl->bind == MQTTD_UNBIND && gwid_obj != NULL && gwid_obj->valuestring != NULL)
+        {
+            mqttdctl->bind = MQTTD_BIND;
+            bind_rst = 1;
+        }
+        else if(bind_value == 0 && mqttdctl->bind == MQTTD_BIND )
+        {
+            mqttdctl->bind = MQTTD_UNBIND;
+            bind_rst = 1;
+        }
+    }
+    
+    osapi_printf("mqttd handle reset.\n");
+    /* PUBLISH capability with rx topic */
+    char topic[80];
+    osapi_snprintf(topic, sizeof(topic), "%s/rx", mqttdctl->topic_prefix);
+
+    //  创建一个新的 JSON 对象
+    cJSON *root = cJSON_CreateObject();
+
+    // 添加键值对到 JSON 对象
+    cJSON_AddStringToObject(root, "type", "bind");
+    cJSON_AddStringToObject(root, "msg_id", msgid_obj->valuestring);
+    if(bind_rst == 1)   
+    {
+        cJSON_AddStringToObject(root, "result", "ok");
+    }
+    else
+    {
+        cJSON_AddStringToObject(root, "result", "error");
+    }
+
+    mqtt_send_json_and_free(mqttdctl, topic, root);
+
+    return rc;
+}
 
 err_t _mqttd_test_recv(void *arg, struct altcp_pcb *conn, struct pbuf *p, err_t err)
 {
@@ -7388,7 +7451,18 @@ static void _mqttd_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t
             }
             else if (osapi_strcmp(type_str, "bind") == 0 && (cJSON_IsObject(data_obj) && (data_obj->child != NULL)))
             {
-                mqttd_debug("Handling bind type.");
+                cJSON *bind_obj = cJSON_GetObjectItemCaseSensitive(json_obj, "bind");
+                rc = _mqttd_handle_bind(ptr_mqttd, data_obj, msgid_obj, bind_obj); /* response inside */
+                if (rc != MW_E_OK)
+                {
+                    mqttd_debug("Handling bind failed.");
+                }
+                else
+                {
+                    mqttd_debug("Handling bind done.");
+                }
+             
+                
             }
             else
             {
