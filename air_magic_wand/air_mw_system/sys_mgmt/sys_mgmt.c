@@ -51,6 +51,7 @@
 #endif
 #ifdef AIR_SUPPORT_MQTTD
 #include "mqttd.h"
+#include "mqttd_http.h"
 #endif
 #include "mw_tlv.h"
 #include "web.h"

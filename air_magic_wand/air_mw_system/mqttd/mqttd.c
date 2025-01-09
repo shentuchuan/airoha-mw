@@ -2399,16 +2399,13 @@ static MW_ERROR_NO_T _mqttd_publish_vlan_member(MQTTD_CTRL_T *ptr_mqttd, const D
     UI16_T db_size = 0;
     VLAN_ENTRY_INFO_T *vlan_entry = NULL;
     u8_t i = 1;
-    return rc;
     osapi_printf("publish vlancfg: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
-    _mqttd_vlan_member_get();
-
+    return rc;
     cJSON *vlan_member = cJSON_CreateArray();
-
-    if (req->e_idx)
+    if (req->e_idx != 0)
     {
         // 获取指定entry
-        rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, req->e_idx, &db_msg, &db_size, &vlan_entry);
+        rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, req->e_idx, &db_msg, &db_size, (void **)&vlan_entry);
         if (MW_E_OK != rc)
         {
             mqttd_debug("Get org DB vlancfg failed(%d)\n", rc);
@@ -2418,7 +2415,7 @@ static MW_ERROR_NO_T _mqttd_publish_vlan_member(MQTTD_CTRL_T *ptr_mqttd, const D
         if (vlan_entry->vlan_id == 0)
         {
             MW_FREE(db_msg);
-            db_msg = NULL;
+            return rc;
         }
         else
         {
@@ -2431,7 +2428,8 @@ static MW_ERROR_NO_T _mqttd_publish_vlan_member(MQTTD_CTRL_T *ptr_mqttd, const D
         // 获取所有entry
         for (i = 1; i <= MAX_VLAN_ENTRY_NUM + 1; i++)
         {
-            rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, i, &db_msg, &db_size, &vlan_entry);
+            mqttd_debug("vlan_id entry %d \n", i);
+            rc = mqttd_queue_getData(VLAN_ENTRY, DB_ALL_FIELDS, i, &db_msg, &db_size, (void **)&vlan_entry);
             if (MW_E_OK != rc)
             {
                 mqttd_debug("Get org DB vlancfg failed(%d)\n", rc);
@@ -2460,8 +2458,6 @@ static MW_ERROR_NO_T _mqttd_publish_vlan_member(MQTTD_CTRL_T *ptr_mqttd, const D
     cJSON_AddStringToObject(root, "type", "config");
     cJSON_AddItemToObject(root, "data", data);
     cJSON_AddItemToObject(data, "vlan_member", vlan_member);
-
-    mqtt_free(db_msg);
 
     mqtt_send_json_and_free(ptr_mqttd, topic, root);
 
