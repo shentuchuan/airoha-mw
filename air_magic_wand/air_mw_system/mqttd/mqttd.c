@@ -116,7 +116,7 @@ const ip_addr_t mqttd_server_ip = IPADDR4_INIT_BYTES(47, 237, 80, 17); // for ik
 /* MQTTD Server Login
  */
 #define MQTTD_RC4_ENABLE (0)
-const ip_addr_t mqttd_server_ip = IPADDR4_INIT_BYTES(192, 168, 0, 100); // for ikuai domain
+const ip_addr_t mqttd_server_ip = IPADDR4_INIT_BYTES(192, 168, 2, 100); // for ikuai domain
 #endif
 
 #if LWIP_DNS
@@ -6774,7 +6774,7 @@ static MW_ERROR_NO_T _mqttd_handle_bind(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj,
     {
         cJSON *gwid_obj = cJSON_GetObjectItemCaseSensitive(data_obj, "gwid");
         int bind_value = bind_obj->valueint;
-        if(bind_value == 1 && mqttdctl->bind == MQTTD_UNBIND && gwid_obj != NULL && gwid_obj->valuestring != NULL)
+        if(bind_value == 1 && mqttdctl->bind == MQTTD_UNBIND && gwid_obj != NULL && gwid_obj->valuestring != NULL && strlen(gwid_obj->valuestring) > 0)
         {
             mqttdctl->bind = MQTTD_BIND;
             bind_rst = 1;
@@ -7471,7 +7471,7 @@ static void _mqttd_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t
         }
         else
         {
-            osapi_printf("Type field not found in JSON data.");
+            osapi_printf("Type or msgid field not found in JSON data.");
             rc = MW_E_NOT_SUPPORT;
         }
 
