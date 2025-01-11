@@ -85,7 +85,7 @@
  */
 #define MQTTD_TASK_NAME "mqttd"
 #define MQTTD_TIMER_NAME "mqttdTmr"
-#define MQTTD_STACK_SIZE (4808)
+#define MQTTD_STACK_SIZE (2808)
 #define MQTTD_THREAD_PRI (4)
 #define MQTTD_MAX_TOPIC_SIZE (64)
 
@@ -2293,9 +2293,9 @@ static MW_ERROR_NO_T _mqttd_publish_portcfg(MQTTD_CTRL_T *ptr_mqttd, const DB_RE
     DB_MSG_T *db_msg = NULL;
     UI16_T db_size = 0;
     void *db_data = NULL;
-    DB_PORT_CFG_INFO_T *ptr_port_cfg_info = NULL;
+    DB_PORT_CFG_INFO_T ptr_port_cfg_info;
     osapi_printf("publish portcfg: T/F/E =%u/%u/%u\n", req->t_idx, req->f_idx, req->e_idx);
-
+    
     if (PORT_VLAN_LIST == req->f_idx)
     {
         return _mqttd_publish_port_vlan_setting(ptr_mqttd, req, ptr_data);
@@ -2308,62 +2308,59 @@ static MW_ERROR_NO_T _mqttd_publish_portcfg(MQTTD_CTRL_T *ptr_mqttd, const DB_RE
 
     if (req->f_idx != PORT_ADMIN_STATUS && req->f_idx != DB_ALL_FIELDS)
         return MW_E_OK;
-
+        
+	memset(&ptr_port_cfg_info, 0, sizeof(DB_PORT_CFG_INFO_T));
     rc = mqttd_queue_getData(PORT_CFG_INFO, DB_ALL_FIELDS, req->e_idx, &db_msg, &db_size, &db_data);
-    if (MW_E_OK == rc)
+    if (MW_E_OK != rc)
     {
-        /* If SUBACK received, then PUBLISH online event */
-        char topic[80];
-        osapi_snprintf(topic, sizeof(topic), "%s/event", ptr_mqttd->topic_prefix);
-        ptr_port_cfg_info = (DB_PORT_CFG_INFO_T *)db_data;
-#if 0     
-        osapi_printf("Port Configuration Info (Port Index: %u):\n", req->e_idx);
-        osapi_printf("Admin Status: %u\n", ptr_port_cfg_info->admin_status);
-        osapi_printf("Admin Speed: %u\n", ptr_port_cfg_info->admin_speed);
-        osapi_printf("Admin Duplex: %u\n", ptr_port_cfg_info->admin_duplex);
-        osapi_printf("Admin Flow Control: %u\n", ptr_port_cfg_info->admin_flow_ctrl);
-        osapi_printf("Admin Speed Ability: %u\n", ptr_port_cfg_info->admin_spd_ability);
-        osapi_printf("EEE Enable: %u\n", ptr_port_cfg_info->eee_enable);
-#endif
-        cJSON *root = cJSON_CreateObject();
-        cJSON *data = cJSON_CreateObject();
-        cJSON *port_setting = cJSON_CreateObject();
-        cJSON *port_setting_entry = cJSON_CreateObject();
-
-        cJSON_AddStringToObject(root, "type", "config");
-        cJSON_AddItemToObject(root, "data", data);
-        cJSON_AddItemToObject(data, "port_setting", port_setting);
-        cJSON_AddItemToArray(port_setting, port_setting_entry);
-        cJSON_AddNumberToObject(port_setting_entry, "id", req->e_idx);
-        char port_name[10];
-        snprintf(port_name, sizeof(port_name), "port%d", req->e_idx);
-        cJSON_AddStringToObject(port_setting_entry, "n", port_name);
-        cJSON_AddNumberToObject(port_setting_entry, "en", ptr_port_cfg_info->admin_status > 0 ? 1 : 0);
-        /*an: 0
-        10M:1
-        100M:2
-        1000M:3*/
-        cJSON_AddNumberToObject(port_setting_entry, "sp", ptr_port_cfg_info->admin_speed);
-
-        /*Duplex
-        half: 3
-        full: 4*/
-        if (ptr_port_cfg_info->admin_speed == 0)
-            cJSON_AddNumberToObject(port_setting_entry, "du", 0);
-        else if (ptr_port_cfg_info->admin_duplex == 0)
-            cJSON_AddNumberToObject(port_setting_entry, "du", 3); /*half*/
-        else
-            cJSON_AddNumberToObject(port_setting_entry, "du", 4); /*full*/
-
-        cJSON_AddNumberToObject(port_setting_entry, "fc_p", ptr_port_cfg_info->admin_flow_ctrl);
-        // cJSON_AddNumberToObject(port_setting_entry, "nv", ptr_port_cfg_info->pvid);
-        // cJSON_AddNumberToObject(port_setting_entry, "vlanlist", ptr_port_cfg_info->vlan_list);
-        cJSON_AddNumberToObject(port_setting_entry, "EEE", ptr_port_cfg_info->eee_enable);
-
-        // osapi_printf("vlan %d, vlan list %x", ptr_port_cfg_info->pvid, ptr_port_cfg_info->vlan_list);
-        mqtt_free(db_msg);
-        mqtt_send_json_and_free(ptr_mqttd, topic, root);
+        mqttd_debug("Get org DB port_cfg_info failed(%d)\n", rc);
+        return rc;
     }
+    memcpy(&ptr_port_cfg_info, db_data, sizeof(DB_PORT_CFG_INFO_T));
+    mqtt_free(db_msg);
+    
+    /* If SUBACK received, then PUBLISH online event */
+    char topic[80];
+    osapi_snprintf(topic, sizeof(topic), "%s/event", ptr_mqttd->topic_prefix);
+
+    cJSON *root = cJSON_CreateObject();
+    cJSON *data = cJSON_CreateObject();
+    cJSON *port_setting = cJSON_CreateObject();
+    cJSON *port_setting_entry = cJSON_CreateObject();
+
+    cJSON_AddStringToObject(root, "type", "config");
+    cJSON_AddItemToObject(root, "data", data);
+    cJSON_AddItemToObject(data, "port_setting", port_setting);
+    cJSON_AddItemToArray(port_setting, port_setting_entry);
+    cJSON_AddNumberToObject(port_setting_entry, "id", req->e_idx);
+    char port_name[10];
+    snprintf(port_name, sizeof(port_name), "port%d", req->e_idx);
+    cJSON_AddStringToObject(port_setting_entry, "n", port_name);
+    cJSON_AddNumberToObject(port_setting_entry, "en", ptr_port_cfg_info.admin_status > 0 ? 1 : 0);
+    /*an: 0
+    10M:1
+    100M:2
+    1000M:3*/
+    cJSON_AddNumberToObject(port_setting_entry, "sp", ptr_port_cfg_info.admin_speed);
+
+    /*Duplex
+    half: 3
+    full: 4*/
+    if (ptr_port_cfg_info.admin_speed == 0)
+        cJSON_AddNumberToObject(port_setting_entry, "du", 0);
+    else if (ptr_port_cfg_info.admin_duplex == 0)
+        cJSON_AddNumberToObject(port_setting_entry, "du", 3); /*half*/
+    else
+        cJSON_AddNumberToObject(port_setting_entry, "du", 4); /*full*/
+
+    cJSON_AddNumberToObject(port_setting_entry, "fc_p", ptr_port_cfg_info.admin_flow_ctrl);
+    // cJSON_AddNumberToObject(port_setting_entry, "nv", ptr_port_cfg_info->pvid);
+    // cJSON_AddNumberToObject(port_setting_entry, "vlanlist", ptr_port_cfg_info->vlan_list);
+    cJSON_AddNumberToObject(port_setting_entry, "EEE", ptr_port_cfg_info.eee_enable);
+
+    // osapi_printf("vlan %d, vlan list %x", ptr_port_cfg_info->pvid, ptr_port_cfg_info->vlan_list);
+    mqtt_send_json_and_free(ptr_mqttd, topic, root);
+    
     return rc;
 }
 
@@ -7571,7 +7568,7 @@ static void _mqttd_subscribe_cb(void *arg, err_t err)
         cJSON_AddStringToObject(data, "swid", ptr_mqttd->device_id);
         cJSON_AddNumberToObject(data, "runtime", ptr_mqttd->ticknum / 2);
         cJSON_AddStringToObject(data, "version", "1.0.0");
-        cJSON_AddStringToObject(data, "product_name", "HR5300");
+        cJSON_AddStringToObject(data, "product_name", "HR210S-16T2GS");
         cJSON_AddStringToObject(data, "firmware", "1.0.0");
         cJSON_AddStringToObject(data, "sn", ptr_mqttd->sn);
         cJSON_AddStringToObject(data, "type", "L2");
