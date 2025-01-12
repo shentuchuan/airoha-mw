@@ -59,7 +59,10 @@
 #endif
 #include "air_dos.h"
 #include "air_sec.h"
+
+#ifdef AIR_SUPPORT_MQTTD
 #include "mqttd_http.h"
+#endif
 
 /* NAMING CONSTANT DECLARATIONS
  */

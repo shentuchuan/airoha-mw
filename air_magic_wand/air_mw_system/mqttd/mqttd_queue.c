@@ -120,7 +120,7 @@ mqttd_get_queue_init()
     /* Create a queue for the blocking interaction with the DB task */
     rc = osapi_msgCreate(
         MQTTD_GET_QUEUE_NAME,
-        MQTTD_QUEUE_LEN,
+        MQTTD_GQUEUE_LEN,
         MQTTD_ACCEPTMBOX_SIZE);
     if (MW_E_OK != rc)
     {
@@ -172,7 +172,7 @@ mqttd_timer_queue_init()
     /* Create a queue for the blocking interaction with the DB task */
     rc = osapi_msgCreate(
         MQTTD_TIMER_QUEUE_NAME,
-        MQTTD_QUEUE_LEN,
+        MQTTD_TQUEUE_LEN,
         MQTTD_ACCEPTMBOX_SIZE);
     if (MW_E_OK != rc)
     {

@@ -58,15 +58,15 @@
  *****************************************/
 const DB_SYS_INFO_T _sys_info_dft =
 {
-    .sys_name = "EN8851",
+    .sys_name = "HR210S-16T2GS",
     .sw_version = "1.0",
     .dhcp_enable = 0,
     .autodns_enable = 0,
-    //.static_ip = 0x0102A8C0,
-    .static_ip = 0xC800A8C0,
+    .static_ip = 0x0102A8C0,
+    //.static_ip = 0xC800A8C0,
     .static_mask = 0x00FFFFFF,
-    //.static_gw = 0x0102A8C0,
-    .static_gw = 0x0100A8C0,
+    .static_gw = 0x0102A8C0,
+    //.static_gw = 0x0100A8C0,
     .static_dns = 0x08080808
 };
 
@@ -323,8 +323,8 @@ const DB_SNMP_INFO_T _snmp_info_dft =
     .trap_hostname = "\0",
     .trap_enable = 0x0,
     .trap_type = 0x0,
-    //.trap_dst_ip = 0x0102A8C0,
-    .trap_dst_ip = 0x0100A8C0,
+    .trap_dst_ip = 0x0102A8C0,
+    //.trap_dst_ip = 0x0100A8C0,
     .read_community = "public",
     .set_community = "private",
     .trap_community = "public"
