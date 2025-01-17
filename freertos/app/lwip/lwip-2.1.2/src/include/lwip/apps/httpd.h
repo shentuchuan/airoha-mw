@@ -93,13 +93,13 @@ extern err_t init_romfile_cfg_file(struct fs_file *file);
 /* HTTP cookie */
 #define HTTPD_BASE64_CONVERT_LEN            (16)
 #define HTTPD_MAX_COOKIE_LEN                (25)
-#define HTTPD_MAX_LOGIN_NUM                 (3)
+#define HTTPD_MAX_LOGIN_NUM                 (10)
 #define HTTPD_CONNECTION_FULL               (0xFF)
 #define HTTPD_CONNECTION_TIMEOUT            (0xFE)
 /* Period : 1 second */
 #define HTTPD_TMR_INTERVAL                  (1000)
 /* Default cookie time out : 5 minute */
-#define HTTPD_COOKIE_TIMEOUT                (0xFFFFFFF)
+#define HTTPD_COOKIE_TIMEOUT                (600)
 
 
 #define HTTPD_MAX_RESPONSE_BUFF_LEN         (64)

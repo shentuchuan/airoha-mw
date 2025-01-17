@@ -8485,6 +8485,7 @@ static void _mqttd_gen_client_id(MQTTD_CTRL_T *ptr_mqttd)
     // Get SN and MAC address
     // TODO: Implement functions to get actual SN and MAC
     osapi_strncpy(ptr_mqttd->sn, "C171Z1YM000000", MQTTD_MAX_SN_SIZE - 1);
+    //osapi_strncpy(ptr_mqttd->mac, _mw_mac_addr, MQTTD_MAX_MAC_SIZE - 1);
     osapi_strncpy(ptr_mqttd->mac, "1C:2A:A3:00:00:2F", MQTTD_MAX_MAC_SIZE - 1);
 
     // Combine SN, MAC and IDENT

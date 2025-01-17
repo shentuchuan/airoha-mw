@@ -58,6 +58,7 @@
 #include "mw_tlv.h"
 #include "btn_reset.h"
 #include "osapi_string.h"
+#include "air_perif.h"
 
 
 /* NAMING CONSTANT DECLARATIONS
@@ -807,6 +808,8 @@ _customer_system_post_init_en8853c_16p_2sfp(
     void)
 {
     int rc = E_OK;
+
+    #if 0
 	UI8_T test_port[] = {2,1,4,3,5,6,7,8,10,9,12,11,13,14,15,16};
 	
     rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_HIGH);
@@ -879,11 +882,106 @@ _customer_system_post_init_en8853c_16p_2sfp(
 	rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_LOW);
     rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_HIGH);
 
-   /*ensable all ports*/
+   /*enable all ports*/
 	for(port = 0; port < total_port_num; port++)
 	{
 		air_port_setAdminState(unit, test_port[port], TRUE);
 	}
+	#else
+	UI8_T test_port[] = {2,1,4,3,5,6,7,8,10,9,12,11,13,14,15,16};
+    rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_HIGH);
+
+	UI8_T   port = 0;
+    UI32_T  total_port_num = sizeof(test_port), unit = 0;
+
+	/*disable all ports*/
+	for(port = 0; port < total_port_num; port++)
+	{
+		air_port_setAdminState(unit, test_port[port], FALSE);
+	}
+
+
+	/*led light by phy*/
+	for(port = 0; port < total_port_num; port++)
+	{
+		/* Configure all the LED state of LED s0 on each port to OFF, and verify the state of LED 0 */
+		air_port_setPhyLedForceState(unit, test_port[port], 0, AIR_PORT_PHY_LED_STATE_OFF);
+
+		/* Configure all the LED state of LED 1 on each port to OFF, and verify the state of LED 1 */
+		air_port_setPhyLedForceState(unit, test_port[port], 1, AIR_PORT_PHY_LED_STATE_OFF);
+
+		/* Recovery each LED to be controlled by PHY */
+		air_port_setPhyLedCtrlMode(unit, test_port[port], 0, AIR_PORT_PHY_LED_CTRL_MODE_PHY);
+		air_port_setPhyLedCtrlMode(unit, test_port[port], 1, AIR_PORT_PHY_LED_CTRL_MODE_PHY);
+	}
+
+	/*led test	green on */
+	for(port = 0; port < total_port_num; port++)
+	{
+		/* Config the LED control mode to force mode */
+	    air_port_setPhyLedCtrlMode(unit, test_port[port], 0, AIR_PORT_PHY_LED_CTRL_MODE_FORCE);
+	    air_port_setPhyLedCtrlMode(unit, test_port[port], 1, AIR_PORT_PHY_LED_CTRL_MODE_FORCE);
+		/* Configure all the LED state of LED 0 on each port to OFF, and verify the state of LED 0 */
+		air_port_setPhyLedForceState(unit, test_port[port], 0, AIR_PORT_PHY_LED_STATE_OFF);
+		/* Configure all the LED state of LED 1 on each port to OFF, and verify the state of LED 1 */
+		air_port_setPhyLedForceState(unit, test_port[port], 1, AIR_PORT_PHY_LED_STATE_OFF);
+
+		/* Configure all the LED state of LED 1 on each port to OFF, and verify the state of LED 1 */
+		air_port_setPhyLedForceState(unit, test_port[port], 1, AIR_PORT_PHY_LED_STATE_ON);
+	}
+	air_perif_setGpioOutputAutoMode(0, EN8853C_16P_2SFP_PIN_SFP1_LED_1, FALSE);
+	air_perif_setGpioOutputAutoMode(0, EN8853C_16P_2SFP_PIN_SFP2_LED_1, FALSE);
+    //air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP1_LED_1, GPIO_PIN_HIGH);
+    //air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP2_LED_1, GPIO_PIN_LOW);
+    air_perif_setGpioOutputData(0, EN8853C_16P_2SFP_PIN_SFP1_LED_1, AIR_PERIF_GPIO_DATA_HIGH);
+    air_perif_setGpioOutputData(0, EN8853C_16P_2SFP_PIN_SFP2_LED_1, AIR_PERIF_GPIO_DATA_LOW);
+	delay1ms(2000);
+	/*led test yellon on */
+	for(port = 0; port < total_port_num; port++)
+	{
+		/* Config the LED control mode to force mode */
+	    air_port_setPhyLedCtrlMode(unit, test_port[port], 0, AIR_PORT_PHY_LED_CTRL_MODE_FORCE);
+	    air_port_setPhyLedCtrlMode(unit, test_port[port], 1, AIR_PORT_PHY_LED_CTRL_MODE_FORCE);
+		/* Configure all the LED state of LED 0 on each port to OFF, and verify the state of LED 0 */
+		air_port_setPhyLedForceState(unit, test_port[port], 0, AIR_PORT_PHY_LED_STATE_OFF);
+		/* Configure all the LED state of LED 1 on each port to OFF, and verify the state of LED 1 */
+		air_port_setPhyLedForceState(unit, test_port[port], 1, AIR_PORT_PHY_LED_STATE_OFF);
+
+		/* Configure all the LED state of LED 1 on each port to OFF, and verify the state of LED 1 */
+		air_port_setPhyLedForceState(unit, test_port[port], 0, AIR_PORT_PHY_LED_STATE_ON);
+
+	}
+	air_perif_setGpioOutputData(0, EN8853C_16P_2SFP_PIN_SFP1_LED_1, AIR_PERIF_GPIO_DATA_LOW);
+    air_perif_setGpioOutputData(0, EN8853C_16P_2SFP_PIN_SFP2_LED_1, AIR_PERIF_GPIO_DATA_HIGH);
+	//air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP1_LED_1, GPIO_PIN_LOW);
+	//air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP2_LED_1, GPIO_PIN_LOW);
+
+	delay1ms(2000);
+	
+	/*led light by phy*/
+	for(port = 0; port < total_port_num; port++)
+	{
+		/* Configure all the LED state of LED s0 on each port to OFF, and verify the state of LED 0 */
+		air_port_setPhyLedForceState(unit, test_port[port], 0, AIR_PORT_PHY_LED_STATE_OFF);
+
+		/* Configure all the LED state of LED 1 on each port to OFF, and verify the state of LED 1 */
+		air_port_setPhyLedForceState(unit, test_port[port], 1, AIR_PORT_PHY_LED_STATE_OFF);
+
+		/* Recovery each LED to be controlled by PHY */
+		air_port_setPhyLedCtrlMode(unit, test_port[port], 0, AIR_PORT_PHY_LED_CTRL_MODE_PHY);
+		air_port_setPhyLedCtrlMode(unit, test_port[port], 1, AIR_PORT_PHY_LED_CTRL_MODE_PHY);
+
+	}
+	
+	/*enable all ports*/
+	for(port = 0; port < total_port_num; port++)
+	{
+		air_port_setAdminState(unit, test_port[port], TRUE);
+	}
+	air_perif_setGpioOutputAutoMode(0, EN8853C_16P_2SFP_PIN_SFP1_LED_1, TRUE);
+	air_perif_setGpioOutputAutoMode(0, EN8853C_16P_2SFP_PIN_SFP2_LED_1, TRUE);
+	#endif
+	
     return rc;
 }
 
