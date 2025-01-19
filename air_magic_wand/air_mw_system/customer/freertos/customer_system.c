@@ -145,6 +145,8 @@
 #define EN8853C_16P_2SFP_PIN_SYS_LED                         (GPIO_PIN0)
 #define EN8853C_16P_2SFP_PIN_RESET_EN8808_1                  (GPIO_PIN1)
 #define EN8853C_16P_2SFP_PIN_RESET_LED                       (GPIO_PIN4)
+#define EN8853C_16P_2SFP_PIN_DATA_LED                        (GPIO_PIN3)
+
 #define EN8853C_16P_2SFP_PIN_SFP1_LED_1                      (GPIO_PIN8)
 //#define EN8853C_16P_2SFP_PIN_SFP1_LED_1                      (GPIO_PIN1 )
 //#define EN8853C_16P_2SFP_PIN_SFP1_LED_2                      (GPIO_PIN5 )
@@ -791,15 +793,16 @@ static int _customer_system_init_en8853c_16p_2sfp(
     //rc |= air_gpio_setDirection(EN8853C_16P_2SFP_PIN_SFP2_TX_DIS, AIR_GPIO_DIRECTION_INPUT);
     //rc |= air_gpio_setDirection(EN8853C_16P_2SFP_PIN_SFP2_ABS, AIR_GPIO_DIRECTION_INPUT);
 
+	rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_LOW);
     rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_EN8808_1, GPIO_PIN_LOW);
-    rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_LOW);
     //rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP1_LED_1, GPIO_PIN_LOW);
     ////rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP1_LED_2, GPIO_PIN_LOW);
     //rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP2_LED_1, GPIO_PIN_LOW);
     ////rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_SFP2_LED_2, GPIO_PIN_LOW);
     delay1ms(5);
     rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_EN8808_1, GPIO_PIN_HIGH);
-
+    //rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_DATA_LED, GPIO_PIN_LOW);
+    //rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_HIGH);
     return rc;
 }
 
@@ -809,7 +812,7 @@ _customer_system_post_init_en8853c_16p_2sfp(
 {
     int rc = E_OK;
 
-    #if 0
+#if 0
 	UI8_T test_port[] = {2,1,4,3,5,6,7,8,10,9,12,11,13,14,15,16};
 	
     rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_HIGH);
@@ -887,7 +890,7 @@ _customer_system_post_init_en8853c_16p_2sfp(
 	{
 		air_port_setAdminState(unit, test_port[port], TRUE);
 	}
-	#else
+#else
 	UI8_T test_port[] = {2,1,4,3,5,6,7,8,10,9,12,11,13,14,15,16};
     rc |= air_gpio_setValue(EN8853C_16P_2SFP_PIN_RESET_LED, GPIO_PIN_HIGH);
 
@@ -980,7 +983,7 @@ _customer_system_post_init_en8853c_16p_2sfp(
 	}
 	air_perif_setGpioOutputAutoMode(0, EN8853C_16P_2SFP_PIN_SFP1_LED_1, TRUE);
 	air_perif_setGpioOutputAutoMode(0, EN8853C_16P_2SFP_PIN_SFP2_LED_1, TRUE);
-	#endif
+#endif
 	
     return rc;
 }
