@@ -6783,7 +6783,7 @@ static MW_ERROR_NO_T _mqttd_handle_bind(MQTTD_CTRL_T *mqttdctl, cJSON *data_obj,
         }
     }
     
-    osapi_printf("mqttd handle reset.\n");
+    osapi_printf("mqttd handle bind.\n");
     /* PUBLISH capability with rx topic */
     char topic[80];
     osapi_snprintf(topic, sizeof(topic), "%s/rx", mqttdctl->topic_prefix);
