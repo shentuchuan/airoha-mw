@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html>
+<!--#portTrunkInfo-->
+<!--#stormCtrlInfo-->
+<style>
+fieldset {
+    font-size: 12px;
+    width: 1000px;
+    margin: 1em auto;
+    padding: 1em;
+    border: 1px solid #36444B;
+}
+legend {
+    font-weight: bold;
+    font-size: 150%;
+    color: #005564;
+    font-family: Arial;
+}
+table {
+    margin: 1em auto;
+    border-collapse: collapse;
+    text-align: center;
+}
+table td {
+    height: 32px;
+    line-height: 21px;
+    width:400px;
+}
+tr.TABLE_HEAD {
+    background-color: #EBEBEB;
+    height: 32px;
+}
+table.BORDER td, th {
+    border: 1px solid #A9A9A9;
+}
+table.TD_FIRST_COL {
+    background-color: #EBEBEB;
+    padding: 0 5px;
+    width: 400px;
+}
+TABLE.BOTTOM_LINE {
+    width: 100%;
+    text-align: left;
+}
+TD.BOTTOM_LINE {
+    background-color: #005564;
+    width: 580px;
+    height: 2px;
+}
+a.BTN {
+    background: url(button.gif) left -42px;
+    color: #000;
+    text-decoration: none;
+    height: 21px;
+    float: left;
+    margin: 0;
+    border-bottom: solid 1px white;
+    transform: scale(1.5, 1.5) translate(150%, 20%);
+}
+a.BTN input {
+    background: url(button.gif) right -42px;
+    padding: 4px 3px 4px 0;
+    margin: 0 0 0 3px;
+    float: left;
+    height: 21px;
+    border: none;
+}
+INPUT.BTN_NORMAL_BTN {
+    font-family: "Arial";
+    width: 60px;
+}
+.SELECT_PORTLIST {
+    font-size: 150%;
+    font-family: "Arial";
+    height: 100px;
+    width: 100px;
+}
+.SELECT_NORMAL {
+    font-size: 150%;
+    font-family: "Arial";
+    height: 32px;
+    width: 100px;
+}
+span.NORMAL {
+    font-size: 150%;
+    font-family: "Arial";
+}
+input.TEXT_ENABLE {
+    font-family: "Arial";
+    font-size: 150%;
+    height: 30px;
+    width: 120px;
+}
+</style>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script type="text/javascript">
+const LINE_SPEED_1000K = 1000000, LINE_SPEED_2500K = 2500000;
+
+var selMask = 0x0;
+var tip = "";
+var selStateType = [0, 0, 0];
+var selState = new Array(portNumber);
+var chkSp = new Array("UCspeed", "MCspeed", "BCspeed");
+var submitUrlString='';
+var max_speed_value = LINE_SPEED_1000K;
+
+for (i = 0; i < portNumber; i++)
+{
+    selState[i] = 0;
+}
+
+function docW(a)
+{
+    document.write(a)
+}
+
+function $id(a)
+{
+    return document.getElementById(a)
+}
+
+function chk_speed()
+{
+    for(i = 0; i < 3; i++)
+    {
+        if($id(chkSp[i]).value < 0 || $id(chkSp[i]).value >max_speed_value)
+        {
+            return 1;
+        }
+        if($id(chkSp[i]).value % 64 != 0)
+        {
+            return 2;
+        }
+    }
+    if (isNaN($id("UCspeed").value) || isNaN($id("MCspeed").value) || isNaN($id("BCspeed").value))
+    {
+        return 1
+    }
+    return 0
+}
+
+function getPortMaxValue(portId)
+{
+    if (parent.window.g_getPortMediaType().AIR_SFP_PORT_TYPE_SFP == portTypeList[portId])
+    {
+        return LINE_SPEED_2500K;
+    }
+    else
+    {
+        return LINE_SPEED_1000K;
+    }
+}
+
+function updateMaxSpeed()
+{
+    let portId = 0;
+
+    for (; portId < portNumber; portId++)
+    {
+        if (true === selState[portId] )
+        {
+            max_speed_value = getPortMaxValue(portId);
+            if (LINE_SPEED_1000K === max_speed_value)
+            {
+                break;
+            }
+        }
+    }
+}
+
+function chkSel(event)
+{
+    var portSel_options = $id("portSel").options,
+    portSel_length = portSel_options.length,
+    port_index = 0;
+    let flag = 1;
+    selMask = 0;
+
+    for (port_index = 0; port_index < portSel_length; ++port_index)
+    {
+        selState[port_index] = portSel_options[port_index].selected;
+    }
+    port_index = 0;
+    for (let [key, value] of _port_list.entries())
+    {
+        if (port_index < portSel_length && selState[port_index])
+        {
+            selMask |= value;
+            if (flag)
+            {
+                if (-1 == key.indexOf("Trunk"))
+                {
+                    $id("UCstate").value = sc_info.UCstate[key - 1];
+                    $id("UCspeed").value = sc_info.UCspeed[key - 1];
+                    $id("UCmode").value = sc_info.UCmode[key - 1];
+                    $id("MCstate").value = sc_info.MCstate[key - 1];
+                    $id("MCspeed").value = sc_info.MCspeed[key - 1];
+                    $id("MCmode").value = sc_info.MCmode[key - 1];
+                    $id("BCstate").value = sc_info.BCstate[key - 1];
+                    $id("BCspeed").value = sc_info.BCspeed[key - 1];
+                    $id("BCmode").value = sc_info.BCmode[key - 1];
+                }
+                else
+                {
+                    for (i = 0; i < portNumber; i++)
+                    {
+                        if (_trunk_info[i] == key.replace("Trunk", ""))
+                        {
+                            $id("UCstate").value = sc_info.UCstate[i];
+                            $id("UCspeed").value = sc_info.UCspeed[i];
+                            $id("UCmode").value = sc_info.UCmode[i];
+                            $id("MCstate").value = sc_info.MCstate[i];
+                            $id("MCspeed").value = sc_info.MCspeed[i];
+                            $id("MCmode").value = sc_info.MCmode[i];
+                            $id("BCstate").value = sc_info.BCstate[i];
+                            $id("BCspeed").value = sc_info.BCspeed[i];
+                            $id("BCmode").value = sc_info.BCmode[i];
+                            break;
+                        }
+                    }
+                }
+                flag = 0;
+            }
+        }
+        port_index++;
+    }
+}
+
+function appendString(param, value)
+{
+    if('' == value)
+    {
+        return;
+    }
+    submitUrlString += "&"+param+"="+value ;
+}
+
+function do_submit()
+{
+    const valueMaskEnum = {
+        UCStateMASK: 0x01,
+        UCSpeedMASK: 0x02,
+        UCModeMASK: 0x04,
+        MCStateMASK: 0x08,
+        MCSpeedMASK: 0x10,
+        MCModeMASK: 0x20,
+        BCStateMASK: 0x40,
+        BCSpeedMASK: 0x80,
+        BCModeMASK: 0x100,
+    };
+    const valueMaskAll = valueMaskEnum.UCStateMASK | valueMaskEnum.UCSpeedMASK | valueMaskEnum.UCModeMASK |
+                         valueMaskEnum.MCStateMASK | valueMaskEnum.MCSpeedMASK | valueMaskEnum.MCModeMASK |
+                         valueMaskEnum.BCStateMASK | valueMaskEnum.BCSpeedMASK | valueMaskEnum.BCModeMASK;
+    var valueMask = 0;
+    let checkSpeedResult = 0;
+
+    if(selMask == 0)
+    {
+        alert(parent.window.stormcontrol_info.alt_info0);
+        return false
+    }
+    updateMaxSpeed();
+    checkSpeedResult = chk_speed();
+    if (1 == checkSpeedResult)
+    {
+        alert(parent.window.stormcontrol_info.alt_info1 + max_speed_value + "!");
+        return false
+    }
+    else if(2 == checkSpeedResult)
+    {
+        alert(parent.window.stormcontrol_info.alt_info3);
+        return false
+    }
+    submitUrlString=''
+    for (i = 0; i < portNumber; i++)
+    {
+        if ((1 << i) & selMask)
+        {
+            if (!(valueMask & valueMaskEnum.UCStateMASK) && $id("UCstate").value != sc_info.UCstate[i])
+            {
+                appendString("UCstate", $id("UCstate").value);
+                valueMask |= valueMaskEnum.UCStateMASK;
+            }
+            if (!(valueMask & valueMaskEnum.UCSpeedMASK) && $id("UCspeed").value != sc_info.UCspeed[i])
+            {
+                appendString("UCspeed", $id("UCspeed").value);
+                valueMask |= valueMaskEnum.UCSpeedMASK;
+            }
+            if (!(valueMask & valueMaskEnum.UCModeMASK) && $id("UCmode").value != sc_info.UCmode[i])
+            {
+                appendString("UCmode", $id("UCmode").value);
+                valueMask |= valueMaskEnum.UCModeMASK;
+            }
+            if (!(valueMask & valueMaskEnum.MCStateMASK) && $id("MCstate").value != sc_info.MCstate[i])
+            {
+                appendString("MCstate", $id("MCstate").value);
+                valueMask |= valueMaskEnum.MCStateMASK;
+            }
+            if (!(valueMask & valueMaskEnum.MCSpeedMASK) && $id("MCspeed").value != sc_info.MCspeed[i])
+            {
+                appendString("MCspeed", $id("MCspeed").value);
+                valueMask |= valueMaskEnum.MCSpeedMASK;
+            }
+            if (!(valueMask & valueMaskEnum.MCModeMASK) && $id("MCmode").value != sc_info.MCmode[i])
+            {
+                appendString("MCmode", $id("MCmode").value);
+                valueMask |= valueMaskEnum.MCModeMASK;
+            }
+            if (!(valueMask & valueMaskEnum.BCStateMASK) && $id("BCstate").value != sc_info.BCstate[i])
+            {
+                appendString("BCstate", $id("BCstate").value);
+                valueMask |= valueMaskEnum.BCStateMASK;
+            }
+            if (!(valueMask & valueMaskEnum.BCSpeedMASK) && $id("BCspeed").value != sc_info.BCspeed[i])
+            {
+                appendString("BCspeed", $id("BCspeed").value);
+                valueMask |= valueMaskEnum.BCSpeedMASK;
+            }
+            if (!(valueMask & valueMaskEnum.BCModeMASK) && $id("BCmode").value != sc_info.BCmode[i])
+            {
+                appendString("BCmode", $id("BCmode").value);
+                valueMask |= valueMaskEnum.BCModeMASK;
+            }
+
+            if (valueMask == valueMaskAll)
+            {
+                break;
+            }
+        }
+    }
+
+    if('' != submitUrlString)
+    {
+        return location.href = "storm_ctrl_set.cgi?selMask=" + selMask + submitUrlString + "&trunkBitMap=" + parent.window.g_getTrunkBitMap(_trunk_info);
+    }
+    else
+    {
+        return (alert(parent.window.str_info.alt_nochange), !1);
+    }
+}
+
+function show_all_storm_ctrl_info()
+{
+    var port_index = 0;
+    trunk_index = 0;
+    i = 0;
+
+    for (let [key, value] of _port_list.entries())
+    {
+        docW("<tr>")
+        if (-1 == key.indexOf("Trunk"))
+        {
+            port_index = key;
+            docW("<td><span class='NORMAL'>" + parent.window.str_info.td_port + " " + port_index + "</span></td>")
+        }
+        else
+        {
+            docW("<td><span class='NORMAL'>" + key.replace("Trunk", parent.window.trunk_info.opt_trunk) + "</span></td>")
+            trunk_index = key.replace("Trunk", "");
+            for (port_index = 1; port_index <= portNumber; port_index++)
+            {
+                if (trunk_index == _trunk_info[port_index - 1])
+                {
+                    break;
+                }
+            }
+        }
+
+        if (port_index > portNumber)
+        {
+            for (i = 0; i < 6; i++)
+            {
+                docW('<td align="center"><span class="NORMAL">' + parent.window.str_info.spn_error0 +'</span></td>')
+            }
+        }
+        else
+        {
+            tmpStr = (sc_info.UCstate[port_index - 1] == 1) ? parent.window.str_info.opt_enable : parent.window.str_info.opt_disable;
+            docW('<td align="center"><span class="NORMAL">' + tmpStr +'</span></td>')
+            tmpStr = (sc_info.UCmode[port_index - 1] == 1) ? "Kbps" : "pps";
+            docW('<td align="center"><span class="NORMAL">' + sc_info.UCspeed[port_index - 1] + tmpStr + "</span></td>")
+            tmpStr = (sc_info.MCstate[port_index - 1] == 1) ? parent.window.str_info.opt_enable : parent.window.str_info.opt_disable;
+            docW('<td align="center"><span class="NORMAL">'+ tmpStr +'</span></td>')
+            tmpStr = (sc_info.MCmode[port_index - 1] == 1) ? "Kbps" : "pps";
+            docW('<td align="center"><span class="NORMAL">' + sc_info.MCspeed[port_index - 1] + tmpStr + "</span></td>")
+            tmpStr = (sc_info.BCstate[port_index - 1] == 1) ? parent.window.str_info.opt_enable : parent.window.str_info.opt_disable;
+            docW('<td align="center"><span class="NORMAL">'+ tmpStr +'</span></td>')
+            tmpStr = (sc_info.BCmode[port_index - 1] == 1) ? "Kbps" : "pps";
+            docW('<td align="center"><span class="NORMAL">' + sc_info.BCspeed[port_index - 1] + tmpStr + "</span></td>")
+        }
+        docW("</tr>")
+    }
+}
+</script>
+</head>
+<body marginwidth="0" marginheight="0">
+<fieldset>
+    <legend><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.lgd_stormcontrol)</script></span></legend>
+        <form name="storm_ctrl_set">
+            <div id="div_sec_title">
+            <table class="BORDER">
+                <tbody>
+                <tr class="TABLE_HEAD">
+                    <td align="center" rowspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.str_info.td_port)</script></span></td>
+                    <td align="center" colspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_uc)</script></span></td>
+                    <td align="center" colspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_multi)</script></span></td>
+                    <td align="center" colspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_broad)</script></span></td>
+                </tr>
+                <tr  class="TABLE_HEAD">
+                    <td align="center" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_state)</script></span></td>
+                    <td align="center" class="TD_FIRST_COL">
+                        <span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_speed)</script></span>
+                        <BR>
+                        <select name="UCmode" id="UCmode" class="SELECT_NORMAL">
+                            <option value ="0"><script>docW(parent.window.stormcontrol_info.td_mode_pps)</script></option>
+                            <option value ="1"><script>docW(parent.window.stormcontrol_info.td_mode_bps)</script></option>
+                        </select>
+                    </td>
+                    <td align="center" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_state)</script></span></td>
+                    <td align="center" class="TD_FIRST_COL">
+                        <span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_speed)</script></span>
+                        <BR>
+                        <select name="MCmode" id="MCmode" class="SELECT_NORMAL">
+                        	<option value ="0"><script>docW(parent.window.stormcontrol_info.td_mode_pps)</script></option>
+                            <option value ="1"><script>docW(parent.window.stormcontrol_info.td_mode_bps)</script></option>
+                        </select>
+                    </td>
+                    <td align="center" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_state)</script></span></td>
+                    <td align="center" class="TD_FIRST_COL">
+                        <span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_speed)</script></span>
+                        <BR>
+                        <select name="BCmode" id="BCmode" class="SELECT_NORMAL">
+                        	<option value ="0"><script>docW(parent.window.stormcontrol_info.td_mode_pps)</script></option>
+                            <option value ="1"><script>docW(parent.window.stormcontrol_info.td_mode_bps)</script></option>
+                        </select>
+                    </td>
+                 </tr>
+                 <tr align="center">
+                  <td>
+                  <select id="portSel" name="portindex" multiple="" size="5" overflow="scroll" onclick="chkSel(event)" class="SELECT_PORTLIST">
+                     <script type="text/javascript">
+                        var i = 0;
+                        for (let [key, value] of _port_list.entries())
+                        {
+                            if (-1 == key.indexOf("Trunk"))
+                            {
+                                docW("<option value=" + value + ">" + parent.window.str_info.td_port + " " + key + "</option>")
+                            }
+                            else
+                            {
+                                newKey = key.replace("Trunk", parent.window.trunk_info.opt_trunk);
+                                docW("<option value=" + value + ">" + newKey + "</option>")
+                            }
+                        }
+                     </script>
+                  </select>
+                  </td>
+                    <td>
+                        <select id="UCstate" name="UCstate" class="SELECT_NORMAL">
+                           <script>
+                              docW(
+                                 '<option value="0">'+ parent.window.str_info.opt_disable +' </option>' +
+                                 '<option value="1">'+ parent.window.str_info.opt_enable +' </option>'
+                              )
+                           </script>
+                        </select>
+                    </td>
+                    <td>
+                        <input class="TEXT_ENABLE" maxlength="7" name="UCspeed" id="UCspeed" onkeyup="value=value.replace(/\D/g,'')" onafterpaste="this.value=this.value.replace(/\D/g,'')">
+                    </td>
+                    <td>
+                        <select id="MCstate" name="MCstate" class="SELECT_NORMAL">
+                           <script>
+                              docW(
+                                 '<option value="0">'+ parent.window.str_info.opt_disable +' </option>' +
+                                 '<option value="1">'+ parent.window.str_info.opt_enable +' </option>'
+                              )
+                           </script>
+                        </select>
+                    </td>
+                    <td>
+                        <input class="TEXT_ENABLE" maxlength="7" name="MCspeed" id="MCspeed" onkeyup="value=value.replace(/\D/g,'')" onafterpaste="this.value=this.value.replace(/\D/g,'')">
+                    </td>
+                    <td>
+                        <select id="BCstate" name="BCstate" class="SELECT_NORMAL">
+                           <script>
+                              docW(
+                                 '<option value="0">'+ parent.window.str_info.opt_disable +' </option>' +
+                                 '<option value="1">'+ parent.window.str_info.opt_enable +' </option>'
+                              )
+                           </script>
+                        </select>
+                    </td>
+                    <td>
+                        <input class="TEXT_ENABLE" maxlength="7" name="BCspeed" id="BCspeed" onkeyup="value=value.replace(/\D/g,'')" onafterpaste="this.value=this.value.replace(/\D/g,'')">
+                    </td>
+                 </tr>
+               </tbody>
+            </table>
+         </div>
+            <table class="BTN_WRAPPER" align="center">
+               <tbody>
+                  <tr>
+                     <td class="BTN_WRAPPER"> <a class="BTN"> <script>docW('<input type="button" value="'+ parent.window.str_info.btn_apply +'" name="applay" class="BTN_NORMAL_BTN" onclick="do_submit()">')</script> </a> </td>
+                  </tr>
+               </tbody>
+            </table>
+      </form>
+        <table class="BOTTOM_LINE">
+            <tbody>
+                <tr>
+                <td class="BOTTOM_LINE"> </td>
+                </tr>
+            </tbody>
+        </table>
+    <form>
+        <div>
+           <table class="BORDER">
+              <tbody>
+                <tr class="TABLE_HEAD">
+                    <td align="center" rowspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.str_info.td_port)</script></span></td>
+                    <td align="center" colspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_uc)</script></span></td>
+                    <td align="center" colspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_multi)</script></span></td>
+                    <td align="center" colspan="2" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_broad)</script></span></td>
+                </tr>
+                <tr  class="TABLE_HEAD">
+                    <td align="center" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_state)</script></span></td>
+                    <td align="center" class="TD_FIRST_COL">
+                        <span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_speed)</script></span>
+                    </td>
+                    <td align="center" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_state)</script></span></td>
+                    <td align="center" class="TD_FIRST_COL">
+                        <span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_speed)</script></span>
+                    </td>
+                    <td align="center" class="TD_FIRST_COL"><span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_state)</script></span></td>
+                    <td align="center" class="TD_FIRST_COL">
+                        <span class="NORMAL"><script>docW(parent.window.stormcontrol_info.td_speed)</script></span>
+                    </td>
+                 </tr>
+                <script type="text/javascript">
+                    show_all_storm_ctrl_info()
+                </script>
+              </tbody>
+           </table>
+        </div>
+        </form>
+   </fieldset>
+</body>
+</html>
