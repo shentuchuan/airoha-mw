@@ -59,7 +59,8 @@
 const DB_SYS_INFO_T _sys_info_dft =
 {
     .sys_name = "HR210S-16T2GS",
-    .sw_version = "1.0",
+    //.sys_name = "ZX210S-16T2GS",
+    .sw_version = "1.0.0.1",
     .dhcp_enable = 0,
     .autodns_enable = 0,
     .static_ip = 0x0102A8C0,

@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--#jumboframe-->
+<style>
+fieldset {
+    font-size: 12px;
+    width: 1000px;
+    margin: 1em auto;
+    padding: 1em;
+    border: 1px solid #36444B;
+}
+legend {
+    font-weight: bold;
+    font-size: 150%;
+    color: #005564;
+    font-family: Arial;
+}
+span.NORMAL {
+    font-size: 150%;
+    font-family: "Arial";
+}
+a.BTN {
+    background: url(button.gif) left -42px;
+    color: #000;
+    text-decoration: none;
+    height: 21px;
+    float: left;
+    margin: 0;
+    border-bottom: solid 1px white;
+    transform: scale(1.5, 1.5) translate(400%, 0%);
+}
+a.BTN input {
+    background: url(button.gif) right -42px;
+    padding: 4px 3px 4px 0;
+    margin: 0 0 0 3px;
+    float: left;
+    height: 21px;
+    border: none;
+}
+INPUT.BTN_NORMAL_BTN {
+    font-family: "Arial";
+    width: 60px;
+}
+.RADIO_NORMAL {
+    transform: scale(1.5, 1.5) translate(-20%, -10%);
+}
+.SELECT_NORMAL {
+    font-size: 150%;
+    font-family: "Arial";
+    height: 32px;
+    width: 150px;
+}
+TD.SBLANK {
+    width: 21px;
+}
+</style>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script type="text/javascript">
+function docW(a)
+{
+    document.write(a)
+}
+function $id(a)
+{
+    return document.getElementById(a)
+}
+function initJumboFrame()
+{
+    if(jumboEnable == 0)
+    {
+        $id("jumboframe_en").checked = false;
+        $id("td_mtu_size").style.display = "none";
+    }
+    else
+    {
+        $id("jumboframe_en").checked = true;
+        $id("td_mtu_size").style.display = "";
+    }
+    $id("mtu_size").value = mtusize;
+}
+function docheck()
+{
+    if( $id("jumboframe_en").checked == true)
+    {
+        $id("td_mtu_size").style.display = "";
+    }
+    else
+    {
+        $id("td_mtu_size").style.display = "none";
+    }
+}
+function do_submit()
+{
+    var reqStr ="";
+    var is_change = false;
+    var is_jumboframe_enable = (true == $id("jumboframe_en").checked)? 1 : 0;
+    /* check input is valid */
+    if((true == $id("jumboframe_en").checked) && (0 == $id("mtu_size").value))
+    {
+        return alert(parent.window.jumboframe_info.alt_info0);
+    }
+    /* check jumbo enable is changed or not */
+    if(is_jumboframe_enable != jumboinfo_ds.enable)
+    {
+        is_change = true;
+    }
+    /* if jumbo enabled, check jumbo mtu is changed or not */
+    if((1 == is_jumboframe_enable) && ($id("mtu_size").value != jumboinfo_ds.mtusize))
+    {
+        is_change = true;
+    }
+    if(true == is_change)
+    {
+        if(true == $id("jumboframe_en").checked) /* jumbo enable */
+        {
+            reqStr = "?jumboframe_en=" + is_jumboframe_enable;
+            reqStr += "&mtu_size=" + $id("mtu_size").value;
+        }
+        else /* jumbo disable */
+        {
+           reqStr = "?jumboframe_en=" + is_jumboframe_enable;
+           reqStr += "&mtu_size=" + 0;
+        }
+    }
+    return location.href = "jumboframeSet.cgi" + reqStr;
+}
+var jumboEnable = jumboinfo_ds.enable
+var mtusize = jumboinfo_ds.mtusize
+</script>
+</head>
+<body marginwidth="0" marginheight="0">
+    <fieldset>
+        <legend><span class="NORMAL"><script>docW(parent.window.jumboframe_info.lgd_jfset)</script></span></legend>
+        <form action="jumboframeSet.cgi">
+            <table>
+            <tbody>
+                <tr>
+                    <td class="SBLANK"></td>
+                    <td>
+                        <table class="FRAMEWORK">
+                        <tbody>
+                            <tr>
+                                <td align="left"><span class="NORMAL"><script>docW(parent.window.jumboframe_info.lgd_jfen)</script></span></td>
+                                <td class="SBLANK"></td>
+                                <td>
+                                    <input name="jumboframe_en" id="jumboframe_en" type="radio" value="1" class="RADIO_NORMAL" onclick="docheck()">
+                                    <span class="NORMAL">
+                                        <script>docW(parent.window.str_info.opt_enable)</script>
+                                    </span>
+                                </td>
+                                <td class="SBLANK"></td>
+                                <td class="SBLANK"></td>
+                                <td>
+                                    <input name="jumboframe_en" id="jumboframe_dis" type="radio" value="0" class="RADIO_NORMAL" checked="" onclick="docheck()">
+                                    <span class="NORMAL"><script>docW(parent.window.jumboframe_info.spn_jfdisable)</script></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                        </table>
+                        <table id="td_mtu_size" class="FRAMEWORK">
+                            <tbody>
+                            <tr>
+                                <td>
+                                    <span class="NORMAL"><script>docW(parent.window.jumboframe_info.spn_jfsize)</script></span>
+                                    <select class="SELECT_NORMAL" id="mtu_size">
+                                        <option value ="0"><script>docW(parent.window.jumboframe_info.spn_jfnone)</script></option>
+                                        <option value ="2">2k</option>
+                                        <option value ="3">3k</option>
+                                        <option value ="4">4k</option>
+                                        <option value ="5">5k</option>
+                                        <option value ="6">6k</option>
+                                        <option value ="7">7k</option>
+                                        <option value ="8">8k</option>
+                                        <option value ="9">9k</option>
+                                        <option value ="10">12k</option>
+                                    </select>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                    <td>
+                        <table class="BTN_WRAPPER" align="left">
+                            <tbody>
+                            <tr>
+                                <td><a class="BTN"><script>docW('<input class="BTN_NORMAL_BTN" type="button" value="'+ parent.window.str_info.btn_apply +'" onclick="do_submit()">')</script></a></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+            </tbody>
+            </table>
+        </form>
+    </fieldset>
+    <script>
+    window.onload = function () {
+        initJumboFrame()
+    }
+    </script>
+</body>
+</html>

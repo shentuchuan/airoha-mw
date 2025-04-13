@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--#portTrunkInfo-->
+<!--#staticmacinfo-->
+<!--#portmaxmacnum-->
+<!--#vlanformac-->
+<!--#dynamicmacinfo-->
+<style>
+fieldset {
+    font-size: 12px;
+    width: 1000px;
+    margin: 1em auto;
+    padding: 1em;
+    border: 1px solid #36444B;
+}
+legend {
+    font-weight: bold;
+    font-size: 150%;
+    color: #005564;
+    font-family: Arial;
+}
+table {
+    margin: 1em auto;
+    border-collapse: collapse;
+    text-align: center;
+}
+table td {
+    height: 32px;
+    line-height: 21px;
+}
+TABLE.FRAMEWORK {
+    line-height: 25px;
+    margin: 0;
+    border-collapse: collapse;
+    border-spacing: 0;
+    border: 0;
+}
+tr.TABLE_HEAD {
+    background-color: #EBEBEB;
+    height: 22px;
+}
+table.BORDER td, th {
+    border: 1px solid #A9A9A9;
+}
+table .TD_FIRST_COL {
+    background-color: #EBEBEB;
+    padding: 0 5px;
+    width: 200px;
+}
+TABLE.BOTTOM_LINE {
+    width: 100%;
+    text-align: left;
+}
+TD.BOTTOM_LINE {
+    background-color: #005564;
+    width: 580px;
+    height: 2px;
+}
+TD.SBLANK {
+    width: 24px;
+}
+span.NORMAL {
+    font-size: 150%;
+    font-family: "Arial";
+}
+a.BTN {
+    background: url(button.gif) left -42px;
+    color: #000;
+    text-decoration: none;
+    height: 21px;
+    float: left;
+    margin: 0;
+    border-bottom: solid 1px white;
+    transform: scale(1.5, 1.5) translate(0%, 20%);
+}
+a.BTN2 {
+    background: url(button.gif) left -42px;
+    color: #000;
+    text-decoration: none;
+    height: 21px;
+    float: left;
+    margin: 0;
+    border-bottom: solid 1px white;
+    transform: scale(1.5, 1.5) translate(80%, 20%);
+}
+a.BTN input {
+    background: url(button.gif) right -42px;
+    padding: 4px 3px 4px 0;
+    margin: 0 0 0 3px;
+    float: left;
+    height: 21px;
+    border: none;
+}
+INPUT.BTN_NORMAL_BTN {
+    font-family: "Arial";
+    width: 60px;
+}
+input.TEXT_ENABLE {
+    font-family: "Arial";
+    font-size: 150%;
+    height: 30px;
+    width: 120px;
+}
+.SELECT_NORMAL {
+    font-size: 150%;
+    font-family: "Arial";
+    height: 30px;
+    width: 120px;
+}
+.CHKBOX_NORMAL {
+    transform: scale(1.5, 1.5) translate(0%, 0%);
+}
+</style>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script type="text/javascript">
+function docW(a)
+{
+    document.write(a)
+}
+function $id(a)
+{
+    return document.getElementById(a)
+}
+
+var XML_SEND_COMPLETE = 4;
+var HTML_STATUS_OK = 200;
+var xmlReq;
+var dynamicmac_cache_table = [];
+var page_cache = [];
+var curpage = 0;
+
+const DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_DEFAULT        = (0);
+const DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_START_DONE     = (4);
+const DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_START_END      = (5);
+const DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_CONTINUE_DONE  = (6);
+const DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_CONTINUE_END   = (7);
+
+var portNum = portinfo_ds.portnum,
+    portMaxhostnums = portinfo_ds.maxhostnums,
+    portMaxhostnum = portinfo_ds.maxhostnum,
+    statichostNum = staticinfo_ds.hostnum,
+    staticMaxhostNum = staticinfo_ds.maxhostnum,
+    staticMacInfo = staticinfo_ds.mac_info,
+    systemMac = staticinfo_ds.sys_mac,
+    vlanVid = vlan_ds.vids,
+    vlanCount = vlan_ds.count;
+function getMaxhostnums(port)
+{
+    return (port.indexOf("Trunk") < 0)? portMaxhostnums[port - 1]:
+        portMaxhostnums[parent.window.g_getPort(_port_list.get(port))];
+}
+function showhostnum()
+{
+    var i = $id("port_sel").value;
+    $id("maxnum").value = getMaxhostnums(i);
+}
+var del_bit = 0;
+function modifyselectedbit(idx)
+{
+    if($id("host_" + idx).checked == true)
+        del_bit |= 1<<(idx - 1);
+    else
+        del_bit &= ~(1<<(idx - 1));
+}
+function delstaticmac()
+{
+    if(del_bit == 0)
+    {
+        alert(parent.window.maccfg_info.alt_info0);
+        return false;
+    }
+    return location.href = "delstaticmac.cgi?del_bit=" + del_bit;
+}
+function maxmacnumSet()
+{
+    var port = $id("port_sel").value;
+    var max = $id("maxnum").value;
+    var trunkBitMap = 0;
+
+    if(max > portMaxhostnum)
+    {
+        alert(parent.window.maccfg_info.alt_info5);
+        return false;
+    }
+    if(max == getMaxhostnums(port))
+    {
+        alert(parent.window.str_info.alt_nochange);
+        return false;
+    }
+
+    trunkBitMap = parent.window.g_getTrunkBitMap(_trunk_info);
+    location.href = "maxmacnumSet.cgi?portBmp=" + _port_list.get(port) + "&max=" + max + "&trunkBitMap="+trunkBitMap;
+
+    return location.href;
+}
+function addstaticmac()
+{
+    var i = 0;
+    var port = $id("mac_port").value;
+    var vid = $id("vlan_id").value;
+    var mac = $id("mac_addr").value;
+    var re=/^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/;
+    var all_0 = /^[0]+$/;
+    var all_F = /^[Ff]+$/;
+    var mcst = /^\w[13579bBdDfF]\w+$/;
+
+    if(statichostNum >= staticMaxhostNum)
+    {
+        alert(parent.window.maccfg_info.alt_info1);
+        return false;
+    }
+    if(!re.test(mac))
+    {
+        alert(parent.window.maccfg_info.alt_info2);
+        return false;
+    }
+    if(all_0.test(mac) || all_F.test(mac) || mcst.test(mac))
+    {
+        alert(parent.window.maccfg_info.alt_info7);
+        return false;
+    }
+    if(!vid)
+    {
+        alert(parent.window.maccfg_info.alt_info4);
+        return false;
+    }
+    mac = mac.toLowerCase();
+    for(i = 0; i < statichostNum; i++)
+    {
+        if((mac == staticMacInfo[i].mac)&&(vid == staticMacInfo[i].vids))
+        {
+            alert(parent.window.maccfg_info.alt_info3);
+            return false;
+        }
+    }
+    if(mac == systemMac)
+    {
+        alert(parent.window.maccfg_info.alt_info6);
+        return false;
+    }
+    port = _port_list.get(port);
+    return location.href = "addstaticmac.cgi?port=" + port + "&vlan=" + vid + "&mac=" + mac + "&idx=" + empty_idx
+    +"&trunkBitMap="+ parent.window.g_getTrunkBitMap(_trunk_info);
+}
+
+function pbmToStr(portbitmap)
+{
+    for (var s = "", t = parseInt(portbitmap, 16), n = 0, r = 1; r <= _trunk_info.length; ++r)
+    {
+        if ((t & 1 << r) && (0 == _trunk_info[r-1]))
+        {
+            for (s += (r), n = r; t & 1 << r + 1;)
+            {
+                if(0 != _trunk_info[r])
+                {
+                    break;
+                }
+                r++;
+            }
+            n != r && (s += "-" + (r)), s += ","
+        }
+    }
+    if("," == s.charAt(s.length - 1))
+    {
+        s = s.substr(0, s.length - 1)
+    }
+    for(let [key, value] of _port_list.entries())
+    {
+        if(-1 != key.indexOf("Trunk"))
+        {
+            if(value & (t >> 1))
+            {
+                if(s.length)
+                {
+                    s += ",";
+                }
+                s += key.replace("Trunk", parent.window.trunk_info.opt_trunk);
+            }
+        }
+    }
+    return s
+}
+
+function dynamicmacRespon()
+{
+    if((XML_SEND_COMPLETE == xmlReq.readyState) && (HTML_STATUS_OK == xmlReq.status))
+    {
+        /*  expected xml string
+         *  8;
+         *  3;
+         *  1000,001122334455,1,300;
+         *  2000,00aabbccddee,8,200;
+         *  5,00aabbccddff,5,127;
+         */
+        let xmlDoc = xmlReq.responseText.split(";");
+        let result = xmlDoc[0];
+        let etycount = xmlDoc[1];
+        let delay_time = Number((dynamiccfg.perrequests) * 4);
+        if((0 != etycount) && ((DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_START_DONE == result)||(DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_CONTINUE_DONE == result)||
+                               (DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_START_END == result)||(DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_CONTINUE_END == result)))
+        {
+            let xml_mac_info = xmlDoc.slice(2);
+            let mac_info = [];
+            let i, offset;
+            if((etycount > dynamiccfg.perrequests) || xml_mac_info.length < etycount)
+            {
+                return;
+            }
+            offset = page_cache.length;
+            for(i = 0; i < etycount; i++)
+            {
+                mac_info = xml_mac_info[i].split(",");
+                $id("tr_dynamicmac_" + offset).style.display = "table-row";
+                $id("td_idx_" + offset).innerHTML = (curpage * dynamiccfg.maxshownums) + offset + 1;
+                $id("td_vid_" + offset).innerHTML = mac_info[0];
+                $id("td_mac_" + offset).innerHTML = mac_info[1];
+                $id("td_port_" + offset).innerHTML = pbmToStr(mac_info[2]);
+                $id("td_age_" + offset).innerHTML = mac_info[3];
+                page_cache.push(mac_info);
+                offset ++;
+            }
+            if((DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_START_END == result)||
+               (DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_CONTINUE_END == result))
+            {
+                dynamicmac_cache_table[curpage] = page_cache;
+                page_cache = [];
+            }
+            else
+            {
+                if(page_cache.length == dynamiccfg.maxshownums)
+                {
+                    dynamicmac_cache_table[curpage] = page_cache;
+                    page_cache = [];
+                    $id("td_btn_next").style.display = "table-cell";
+                }
+                else
+                {
+                    setTimeout("send_dynamicmac_xmlReq()", delay_time);
+                }
+            }
+        }
+        else
+        {
+            if((DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_START_END != result)||
+               (DYNAMIC_MAC_ADDRESS_ENTRY_CFG_RESULT_CONTINUE_END != result))
+            {
+                setTimeout("send_dynamicmac_xmlReq()", delay_time);
+            }
+        }
+    }
+}
+function send_dynamicmac_xmlReq()
+{
+    xmlReq = parent.getXMLObject();
+    if(null != xmlReq)
+    {
+        xmlReq.onreadystatechange = dynamicmacRespon;
+        xmlReq.open("GET", "/dynamicmacentry.xml", true);
+        xmlReq.send(null);
+    }
+}
+
+function send_dynamicmac_cgi(firstreq)
+{
+    xmlReq = parent.getXMLObject();
+    if(null != xmlReq)
+    {
+        let times = 0;
+        firstreq = firstreq ? 1 : 0;
+        if(typeof(dynamiccfg) != "undefined")
+        {
+            times = (dynamiccfg.maxshownums / dynamiccfg.perrequests);
+            xmlReq.open("GET", "/freshdynamicmac.cgi?firstreq=" + firstreq + "&times=" + times, true);
+            xmlReq.onreadystatechange = dynamicmacRespon;
+            xmlReq.send(null);
+        }
+    }
+}
+
+function dynamicmac_prepage()
+{
+    let mac_info = [];
+    let i = 0;
+    if((0 == curpage) || (undefined == dynamicmac_cache_table[curpage - 1]) || (null == dynamicmac_cache_table[curpage - 1]))
+    {
+        $id("td_btn_pre").style.display = "none";
+        /* This is the first page! */
+        return alert(parent.window.maccfg_info.alt_info8);
+    }
+    for (i = 0; i < dynamiccfg.maxshownums; i++)
+    {
+        $id("tr_dynamicmac_" + i).style.display = "none";
+    }
+    curpage--;
+    mac_info = dynamicmac_cache_table[curpage];
+    if(mac_info.length != dynamiccfg.maxshownums)
+    {
+        curpage++;
+        return;
+    }
+    for(i = 0; i < mac_info.length; i++)
+    {
+        $id("tr_dynamicmac_" + i).style.display = "table-row";
+        $id("td_idx_" + i).innerHTML = (curpage * dynamiccfg.maxshownums) + i + 1;
+        $id("td_vid_" + i).innerHTML = mac_info[i][0];
+        $id("td_mac_" + i).innerHTML = mac_info[i][1];
+        $id("td_port_" + i).innerHTML = pbmToStr(mac_info[i][2]);
+        $id("td_age_" + i).innerHTML = mac_info[i][3];
+    }
+
+    $id("td_btn_next").style.display = "table-cell";
+    if(0 == curpage)
+    {
+        $id("td_btn_pre").style.display = "none";
+    }
+}
+
+function dynamicmac_nextpage()
+{
+    let mac_info = [];
+    let i = 0;
+
+    for (i = 0; i < dynamiccfg.maxshownums; i++)
+    {
+        $id("tr_dynamicmac_" + i).style.display = "none";
+    }
+    $id("td_btn_next").style.display = "none";
+    curpage++;
+    if((undefined == dynamicmac_cache_table[curpage]) || (null == dynamicmac_cache_table[curpage]))
+    {
+        send_dynamicmac_cgi(false);
+    }
+    else
+    {
+        mac_info = dynamicmac_cache_table[curpage];
+        for(i = 0; i < mac_info.length; i++)
+        {
+            $id("tr_dynamicmac_" + i).style.display = "table-row";
+            $id("td_idx_" + i).innerHTML = (curpage * dynamiccfg.maxshownums) + i + 1;
+            $id("td_vid_" + i).innerHTML = mac_info[i][0];
+            $id("td_mac_" + i).innerHTML = mac_info[i][1];
+            $id("td_port_" + i).innerHTML = pbmToStr(mac_info[i][2]);
+            $id("td_age_" + i).innerHTML = mac_info[i][3];
+        }
+        if(mac_info.length == dynamiccfg.maxshownums)
+        {
+            $id("td_btn_next").style.display = "table-cell";
+        }
+    }
+    $id("td_btn_pre").style.display = "table-cell";
+}
+
+</script>
+</head>
+<body marginwidth="0" marginheight="0">
+<div>
+    <fieldset>
+        <legend><span class="NORMAL"><script>docW(parent.window.maccfg_info.lgd_info3)</script></span></legend>
+        <form action="maxmacnumSet.cgi">
+            <table>
+                <tbody>
+                    <tr>
+                        <td>
+                            <table class="FRAMEWORK">
+                                <tbody>
+                                    <tr>
+                                        <td align="left">
+                                            <span class="NORMAL"><script>docW(parent.window.str_info.td_portidx)</script></span>
+                                        </td>
+                                        <td>
+                                            <select id="port_sel" name="port_sel" onchange="showhostnum()" class="SELECT_NORMAL">
+                                                <script type="text/javascript">
+                                                for (var i of _port_list.keys())
+                                                    docW("<option value='" + i + "'>" + ((i.indexOf("Trunk") < 0) ? i: i.replace("Trunk", parent.window.trunk_info.opt_trunk)) + "</option>");
+                                                </script>
+                                            </select>
+                                        </td>
+                                        <td class="SBLANK"></td>
+                                        <td align="left">
+                                            <span class="NORMAL"><script>docW(parent.window.secmac_info.td_maxmacnum)</script></span>
+                                        </td>
+                                        <td>
+                                            <input type="text" id="maxnum" maxlength="3" onkeyup="value=value.replace(/\D/g,'')" onafterpaste="this.value=this.value.replace(/\D/g,'')" class="TEXT_ENABLE">
+                                        </td>
+                                        <td align="left">
+                                            <span class="NORMAL"><script>docW("(0-"+portMaxhostnum+", "+parent.window.maccfg_info.spn_maxmacnum_tip+")")</script></span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    <table align="center">
+                        <tbody>
+                            <tr>
+                                <td> <a class="BTN"><script>docW('<input class="BTN_NORMAL_BTN" type="button" value="'+ parent.window.str_info.btn_apply +'" name="btn_apply" onclick=maxmacnumSet()>')</script> </a> </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </tbody>
+            </table>
+            <table class="BORDER">
+                <tbody>
+                <tr class="TABLE_HEAD">
+                    <script>
+                    docW(
+                            '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.str_info.td_port +'</span></td>' +
+                            '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.spn_maxmacnum +'</span></td>'
+                        )
+                    </script>
+                </tr>
+                <script type="text/javascript">
+                for (var i of _port_list.keys())
+                {
+                    var maxnum = getMaxhostnums(i);
+                    docW("<tr><td><span class='NORMAL'>" + ((i.indexOf("Trunk") < 0) ? i: i.replace("Trunk", parent.window.trunk_info.opt_trunk)) + "</span></td><td><span class='NORMAL'>" + maxnum + "</span></td></tr>");
+                }
+                </script>
+                </tbody>
+            </table>
+        </form>
+        <div>
+            <table width="100%">
+                <tbody>
+                <tr>
+                    <td class="BOTTOM_LINE"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <form action="addstaticmac.cgi">
+            <table>
+                <tbody>
+                <tr>
+                    <td>
+                        <table class="FRAMEWORK">
+                            <tbody>
+                            <tr>
+                                <td align="left">
+                                    <span class="NORMAL"><script>docW(parent.window.str_info.td_portidx)</script></span>
+                                </td>
+                                <td>
+                                    <select id="mac_port" name="mac_port" class="SELECT_NORMAL">
+                                        <script type="text/javascript">
+                                            for (var i of _port_list.keys())
+                                                docW("<option value='" + i + "'>" + ((i.indexOf("Trunk") < 0) ? i: i.replace("Trunk", parent.window.trunk_info.opt_trunk)) + "</option>");
+                                        </script>
+                                    </select>
+                                </td>
+                                <td class="SBLANK"></td>
+                                <td align="left">
+                                    <span class="NORMAL">VID：</span>
+                                </td>
+                                <td>
+                                    <select id="vlan_id" name="vlan_id" class="SELECT_NORMAL">
+                                        <script type="text/javascript">
+                                        for (var i = 0; i < vlanCount; i++)
+                                            docW("<option"), docW(" value='" + vlanVid[i] + "'>"), docW(vlanVid[i]), docW("</option>")
+                                        </script>
+                                    </select>
+                                </td>
+                                <td class="SBLANK"></td>
+                                <td align="left">
+                                    <span class="NORMAL"><script>docW(parent.window.maccfg_info.spn_macaddr)</script></span>
+                                </td>
+                                <td>
+                                    <input type="text" id="mac_addr" name="mac_addr" maxlength="17" class="TEXT_ENABLE">
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <table class="BTN_WRAPPER" align="center">
+                            <tbody>
+                            <tr>
+                                <td> <a class="BTN">
+                                        <script>
+                                        docW('<input class="BTN_NORMAL_BTN" type="button" value="'+ parent.window.maccfg_info.btn_add +'" name="btn_add" onclick=addstaticmac()>')
+                                        </script>
+                                </a> </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </form>
+        <form action="delstaticmac.cgi">
+            <table class="BORDER">
+                <tbody>
+                <tr class="TABLE_HEAD">
+                    <script>
+                        docW(
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.td_idx +'</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">VID</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">MAC</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.td_port +'</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.td_chosen +'</span></td>'
+                            );
+                    </script>
+                </tr>
+                <script type="text/javascript">
+                    var idx = 0, tid = 0;
+                    var empty_idx = 1;
+                    for (var i = 0; i < statichostNum; i++)
+                    {
+                        tid = _trunk_info[staticinfo_ds.mac_info[i].port - 1];
+                        idx = i + 1,
+                            docW("<tr>"),
+                            docW("<td><span class='NORMAL'>" + idx + "</span></td>"),
+                            docW("<td><span class='NORMAL'>" + staticinfo_ds.mac_info[i].vids + "</span></td>"),
+                            docW("<td><span class='NORMAL'>" + staticinfo_ds.mac_info[i].mac + "</span></td>"),
+                            docW("<td><span class='NORMAL'>" + ((tid == 0)? staticinfo_ds.mac_info[i].port: (parent.window.trunk_info.opt_trunk + tid))  + "</span></td>"),
+                            docW("<td><input class='CHKBOX_NORMAL' type=checkbox name=host_"+ staticinfo_ds.mac_info[i].idx +" id=host_" + staticinfo_ds.mac_info[i].idx + " value=" + staticinfo_ds.mac_info[i].idx +" onClick=modifyselectedbit(" + staticinfo_ds.mac_info[i].idx + ");></td>"),
+                            docW("</tr>")
+                                if (staticinfo_ds.mac_info[i].idx == empty_idx)empty_idx++;
+                    }
+                </script>
+                </tbody>
+            </table>
+            <table class="BTN_WRAPPER" align="center">
+                <tbody>
+                <tr>
+                    <td> <a class="BTN">
+                            <script>
+docW('<input class="BTN_NORMAL_BTN" type="button" value="'+ parent.window.maccfg_info.btn_del +'" name="btn_del" onclick=delstaticmac()>')
+                            </script>
+                    </a> </td>
+                </tr>
+                </tbody>
+            </table>
+        </form>
+    </fieldset>
+</div>
+<div>
+    <fieldset>
+        <legend><span class="NORMAL"><script>docW(parent.window.maccfg_info.lgd_info4)</script></span></legend>
+            <table class="BORDER">
+                <tbody>
+                <tr class="TABLE_HEAD" id="tr_dynamicmac_header">
+                    <script>
+                        docW(
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.td_idx +'</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">VID</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">MAC</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.td_port +'</span></td>' +
+                                '<td class="TD_FIRST_COL"><span class="NORMAL">'+ parent.window.maccfg_info.td_age +'</span></td>'
+                            );
+                    </script>
+                </tr>
+                <script type="text/javascript">
+                    if(typeof(dynamiccfg) != "undefined")
+                    {
+                        for (let i = 0; i < dynamiccfg.maxshownums; i++)
+                        {
+                            docW("<tr id=tr_dynamicmac_" + i +">\
+                                <td><span class='NORMAL'><div id=td_idx_"  + i + "></div></span></td>\
+                                <td><span class='NORMAL'><div id=td_vid_"  + i + "></div></span></td>\
+                                <td><span class='NORMAL'><div id=td_mac_"  + i + "></div></span></td>\
+                                <td><span class='NORMAL'><div id=td_port_" + i + "></div></span></td>\
+                                <td><span class='NORMAL'><div id=td_age_"  + i + "></div></span></td></tr>");
+
+                            $id("tr_dynamicmac_" + i).style.display = "none";
+                        }
+                    }
+                </script>
+                </tbody>
+            </table>
+            <table class="BTN_WRAPPER" align="center">
+                <tbody>
+                <tr id="tr_pagebtn">
+                    <td id="td_btn_pre"> <a class="BTN">
+                        <script>
+                            docW('<input id="btn_pre" class="BTN_NORMAL_BTN" type="button" value="'+ parent.window.maccfg_info.btn_pre +'"onclick="dynamicmac_prepage()">')
+                            $id("td_btn_pre").style.display = "none";
+                        </script>
+                    </a> </td>
+                    <td class="SBLANK"></td>
+                    <td class="SBLANK"></td>
+                    <td id="td_btn_next"> <a class="BTN">
+                        <script>
+                            docW('<input id="btn_next" class="BTN_NORMAL_BTN" type="button" value="'+ parent.window.maccfg_info.btn_next +'"onclick="dynamicmac_nextpage()">')
+                            $id("td_btn_next").style.display = "none";
+                        </script>
+                </a> </td>
+                </tr>
+                </tbody>
+            </table>
+    </fieldset>
+</div>
+<script>
+window.onload = function () {
+    showhostnum()
+    send_dynamicmac_cgi(true);
+}
+</script>
+</body>
+
+</html>

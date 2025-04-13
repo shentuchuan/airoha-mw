@@ -152,7 +152,7 @@ cgi_set_handle_addStaticMac(
 {
     int i;
     MW_ERROR_NO_T rc = MW_E_OK;
-    char mac_str[13] = {0};
+    char mac_str[18] = {0};
     UI16_T idx = 0;
     ONE_DB_STATIC_MAC_ENTRY_T mac_data = {0};
     ether_addr_t ether_addr;
@@ -176,8 +176,8 @@ cgi_set_handle_addStaticMac(
         }
         else if (!strcmp(pcParam[i], "mac"))
         {
-            osapi_memset(mac_str, 0, 13);
-            osapi_strncpy(mac_str, pcValue[i], 12);
+            osapi_memset(mac_str, 0, 18);
+            osapi_strncpy(mac_str, pcValue[i], 17);
         }
         else if (!strcmp(pcParam[i], "idx"))
         {
@@ -322,7 +322,7 @@ ssi_get_static_mac_info_Handle(
 {
     char err = 0;
     int len = 0, total_len = 0, i = 0;
-    char mac_str[13] = {0};
+    char mac_str[18] = {0};
     MW_ERROR_NO_T mw_rc = MW_E_OK;
     DB_MSG_T *ptr_msg;
     DB_STATIC_MAC_ENTRY_T *ptr_mac_entry;
@@ -362,7 +362,7 @@ ssi_get_static_mac_info_Handle(
     }
     memcpy(ether_addr.octet, *ptr_mac_addr, ETHER_ADDR_LEN);
     MW_FREE(ptr_msg);
-    macToStr(&ether_addr, (UI8_T*)mac_str, FALSE);
+    macToStr(&ether_addr, (UI8_T*)mac_str, TRUE);
     DEBUG(debugflags, "<%s:%u> sys_mac:'%s'\n", __func__, __LINE__, mac_str);
     err = send_format_response((UI32_T*)&len, pcb, apiflags,
             "sys_mac:'%s',mac_info:[", mac_str);
@@ -389,7 +389,7 @@ ssi_get_static_mac_info_Handle(
         {
             ety_cnt++;
             memcpy(ether_addr.octet, ptr_mac_entry ->mac_addr[i], ETHER_ADDR_LEN);
-            macToStr(&ether_addr, (UI8_T*)mac_str, FALSE);
+            macToStr(&ether_addr, (UI8_T*)mac_str, TRUE);
             DEBUG(debugflags, "<%s:%u> {idx:%u,vids:%u,mac:'%s',port:%u}\n", __func__, __LINE__,
                 i+1,
                 ptr_mac_entry ->vid[i],
