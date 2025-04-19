@@ -7568,7 +7568,9 @@ static void _mqttd_subscribe_cb(void *arg, err_t err)
         cJSON_AddStringToObject(data, "swid", ptr_mqttd->device_id);
         cJSON_AddNumberToObject(data, "runtime", ptr_mqttd->ticknum / 2);
         cJSON_AddStringToObject(data, "version", "1.0.0");
-        cJSON_AddStringToObject(data, "product_name", "HR210S-16T2GS");
+        //cJSON_AddStringToObject(data, "product_name", "HR210S-16T2GS");
+        
+        cJSON_AddStringToObject(data, "product_name", "ZX210S-16T2GS");
         cJSON_AddStringToObject(data, "firmware", "1.0.0");
         cJSON_AddStringToObject(data, "sn", ptr_mqttd->sn);
         cJSON_AddStringToObject(data, "type", "L2");

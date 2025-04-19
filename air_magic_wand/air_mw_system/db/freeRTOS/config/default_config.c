@@ -58,9 +58,9 @@
  *****************************************/
 const DB_SYS_INFO_T _sys_info_dft =
 {
-    .sys_name = "HR210S-16T2GS",
-    //.sys_name = "ZX210S-16T2GS",
-    .sw_version = "1.0.0.1",
+    //.sys_name = "HR210S-16T2GS",
+    .sys_name = "ZX210S-16T2GS",
+    .sw_version = "1.0.0.2",
     .dhcp_enable = 0,
     .autodns_enable = 0,
     .static_ip = 0x0102A8C0,
@@ -117,9 +117,13 @@ const DB_PORT_CFG_INFO_T _port_cfg_info_dft =
     .storm_bc_rate = 0,
     .storm_mc_rate = 0,
     .storm_uc_rate = 0,
-    .storm_bc_mode = 0,
-    .storm_mc_mode = 0,
-    .storm_uc_mode = 0,
+    //.storm_bc_mode = 0,
+    //.storm_mc_mode = 0,
+    //.storm_uc_mode = 0,
+    
+    .storm_bc_mode = 1,
+    .storm_mc_mode = 1,
+    .storm_uc_mode = 1,
     .storm_bc_cfg = 0,
     .storm_mc_cfg = 0,
     .storm_uc_cfg = 0,

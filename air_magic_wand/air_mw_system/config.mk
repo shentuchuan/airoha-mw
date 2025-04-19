@@ -1,5 +1,5 @@
 #MW_SYS_VER=v24.03M01
-MW_SYS_VER=1.0.0.1
+MW_SYS_VER=1.0.0.2
 
 OS_MODULE:=freertos
 OS_PATH:=$(shell pwd)/../../freertos
